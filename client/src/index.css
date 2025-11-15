@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* Local font faces */
+@font-face {
+  font-family: 'DelaGothicOne';
+  src: url('/fonts/DelaGothicOne-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Heliopolis';
+  src: url('/fonts/HTHeliopolis-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* CSS Variables for font families */
+:root {
+  --font-heading: 'DelaGothicOne', 'Arial Black', 'Helvetica Black', sans-serif;
+  --font-body: 'Heliopolis', 'Arial', 'Helvetica', sans-serif;
+}
+
+/* Global font application */
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+}
+
+/* Custom font classes for consistent usage */
+.font-heading {
+  font-family: var(--font-heading);
+  font-weight: 400;
+}
+
+.font-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+}
+
+.font-bold-heading {
+  font-family: var(--font-heading);
+  font-weight: 400;
+}
+
+.font-medium-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+}
