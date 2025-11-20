@@ -21,3 +21,24 @@ export interface GameProgress {
   isCompleted: boolean;
   completedCards: number[];
 }
+
+export interface GameQRCodes {
+  game1?: string;
+  game2?: string;
+  game3?: string;
+  game4?: string;
+}
+
+export interface GameClaims {
+  game1: boolean;
+  game2: boolean;
+  game3: boolean;
+  game4: boolean;
+}
+
+export interface UserQRData {
+  phoneNumber: string;
+  userName: string;
+  gameQRCodes: GameQRCodes;
+  gameClaims: GameClaims;
+}

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import jsQR from "jsqr";
 
 interface SimpleQRScannerProps {
-  onScan: (result: string) => void;
+  onScan: (result: string) => Promise<{ success: boolean; message?: string }> | void;
   onClose: () => void;
   title: string;
   expectedQRCode: string;
@@ -18,9 +18,9 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
   const [error, setError] = useState<string>("");
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<string>("");
   const [isProcessingQR, setIsProcessingQR] = useState(false);
   const [invalidQRMessage, setInvalidQRMessage] = useState<string>("");
+  const [validationMessage, setValidationMessage] = useState<string>("");
   const [isMobile, setIsMobile] = useState(false); // NEW: Mobile detection
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -55,63 +55,11 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
     setIsMobile(checkMobile());
   }, []);
 
-  // Utility function to check for active media streams
-  const checkActiveStreams = () => {
-    console.log("🔍 Checking for active media streams...");
-
-    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-      navigator.mediaDevices
-        .enumerateDevices()
-        .then((devices) => {
-          const cameras = devices.filter(
-            (device) => device.kind === "videoinput"
-          );
-          console.log("📷 Available cameras:", cameras.length);
-        })
-        .catch((err) => {
-          console.log("❌ Could not enumerate devices:", err);
-        });
-    }
-
-    if (videoRef.current) {
-      const video = videoRef.current;
-      console.log("🎥 Video element state:", {
-        paused: video.paused,
-        srcObject: !!video.srcObject,
-        readyState: video.readyState,
-      });
-
-      if (video.srcObject) {
-        const stream = video.srcObject as MediaStream;
-        console.log(
-          "🎬 Video stream tracks:",
-          stream.getTracks().map((track) => ({
-            kind: track.kind,
-            readyState: track.readyState,
-            enabled: track.enabled,
-          }))
-        );
-      }
-    }
-
-    if (streamRef.current) {
-      console.log(
-        "📡 StreamRef tracks:",
-        streamRef.current.getTracks().map((track) => ({
-          kind: track.kind,
-          readyState: track.readyState,
-          enabled: track.enabled,
-        }))
-      );
-    }
-  };
 
   useEffect(() => {
-    console.log("📷 Starting camera initialization...");
     initializeCamera();
 
     return () => {
-      console.log("🔴 useEffect cleanup running");
       cleanup();
     };
   }, []);
@@ -151,8 +99,7 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
                 setIsScanning(true);
                 startQRDetection();
               })
-              .catch((playError) => {
-                console.error("Error playing video:", playError);
+              .catch(() => {
                 setError(
                   "Failed to start camera preview. Please check permissions."
                 );
@@ -213,6 +160,10 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
   };
 
   const validateQRCode = (scannedData: string): boolean => {
+    // If expectedQRCode is empty, accept any QR code (for admin scanning)
+    if (!expectedQRCode || expectedQRCode === "") {
+      return true;
+    }
     return scannedData === expectedQRCode;
   };
 
@@ -227,7 +178,7 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
       ) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
-        const context = canvas.getContext("2d");
+        const context = canvas.getContext("2d", { willReadFrequently: true });
 
         if (context && video.readyState === video.HAVE_ENOUGH_DATA) {
           // NEW: Resize canvas to smaller dimensions for faster processing (optimized for mobile)
@@ -273,28 +224,34 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
           );
 
           if (qrCode && qrCode.data) {
-            console.log("QR Code detected:", qrCode.data);
-            console.log("Expected QR Code:", expectedQRCode);
-            console.log("Detected in resized frame");
-
             const isValidQR = validateQRCode(qrCode.data);
-            console.log("QR Code validation result:", isValidQR);
 
             if (isValidQR) {
               setIsScanning(false);
               setIsProcessingQR(true);
-              setScanResult(qrCode.data);
               setInvalidQRMessage("");
+              setValidationMessage("Processing...");
 
               cleanup();
 
-              setTimeout(() => {
-                onScan(qrCode.data);
-              }, 1000);
+              setTimeout(async () => {
+                const result = await onScan(qrCode.data);
+                
+                // Check if result indicates failure
+                if (result && !result.success) {
+                  setIsProcessingQR(false);
+                  setValidationMessage(result.message || "❌ Invalid QR code");
+                  setIsScanning(true);
+                  initializeCamera();
+                  
+                  setTimeout(() => {
+                    setValidationMessage("");
+                  }, 3000);
+                }
+              }, 500);
 
               return;
-                         } else {
-               console.log("❌ Invalid QR code scanned:", qrCode.data);
+            } else {
                setInvalidQRMessage("invalid");
 
                setTimeout(() => {
@@ -333,7 +290,6 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
   }, [isCameraReady, isScanning, startQRDetection]);
 
   const cleanup = () => {
-    console.log("🔴 Cleaning up QR Scanner - stopping camera and animations");
     setIsScanning(false);
     setIsCameraReady(false);
     setIsProcessingQR(false);
@@ -341,98 +297,49 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
-      console.log("✅ Animation frame cancelled");
     }
 
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
-      console.log("✅ Scan interval cleared");
     }
 
     if (videoRef.current) {
-      console.log("🔴 Stopping video element...");
       const video = videoRef.current;
-
       video.pause();
-      console.log("✅ Video paused");
-
       video.onloadedmetadata = null;
       video.onerror = null;
 
       const videoStream = video.srcObject as MediaStream;
       if (videoStream) {
-        console.log("🔴 Found stream in video element, stopping tracks...");
-        videoStream.getTracks().forEach((track, index) => {
-          console.log(
-            `🔴 Video element track ${index}:`,
-            track.kind,
-            track.readyState,
-            track.enabled
-          );
+        videoStream.getTracks().forEach((track) => {
           track.stop();
-          console.log(
-            `✅ Video element track ${index} stopped:`,
-            track.readyState
-          );
         });
       }
 
       video.srcObject = null;
-      console.log("✅ Video srcObject cleared");
-
       video.load();
-      console.log("✅ Video element reloaded with no source");
     }
 
     if (streamRef.current) {
-      console.log("🔴 Stopping streamRef tracks...");
-      streamRef.current.getTracks().forEach((track, index) => {
-        console.log(
-          `🔴 StreamRef track ${index}:`,
-          track.kind,
-          track.readyState,
-          track.enabled
-        );
+      streamRef.current.getTracks().forEach((track) => {
         if (track.readyState !== "ended") {
           track.stop();
-          console.log(`✅ StreamRef track ${index} stopped:`, track.readyState);
-        } else {
-          console.log(`⚠️ StreamRef track ${index} was already ended`);
         }
       });
       streamRef.current = null;
-      console.log("✅ StreamRef cleared");
     }
 
     if ((window as any).gc) {
       (window as any).gc();
-      console.log("✅ Forced garbage collection");
     }
-
-    console.log("🔴 QR Scanner cleanup completed - Camera should be OFF");
-
-    setTimeout(() => {
-      console.log("🔍 Verifying camera shutdown...");
-      if (videoRef.current && videoRef.current.srcObject) {
-        console.log("⚠️ WARNING: Video still has srcObject after cleanup!");
-      } else {
-        console.log("✅ Verified: Video srcObject is null");
-      }
-
-      if (streamRef.current) {
-        console.log("⚠️ WARNING: StreamRef still exists after cleanup!");
-      } else {
-        console.log("✅ Verified: StreamRef is null");
-      }
-    }, 100);
   };
 
   const handleRetry = () => {
     setError("");
-    setScanResult("");
     setIsProcessingQR(false);
     setInvalidQRMessage("");
+    setValidationMessage("");
     cleanup();
 
     setTimeout(() => {
@@ -441,26 +348,14 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
   };
 
   useEffect(() => {
-    console.log("🔄 Component mounted - QR Scanner initialized");
-
     return () => {
-      console.log(
-        "🔴 QR Scanner component unmounting - forcing camera cleanup"
-      );
-
       if (videoRef.current) {
         const video = videoRef.current;
         video.pause();
 
         const stream = video.srcObject as MediaStream;
         if (stream) {
-          console.log("🔴 UNMOUNT: Stopping tracks from video element...");
           stream.getTracks().forEach((track) => {
-            console.log(
-              "🔴 UNMOUNT: Force stopping track:",
-              track.kind,
-              track.readyState
-            );
             track.stop();
           });
         }
@@ -470,13 +365,8 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
       }
 
       if (streamRef.current) {
-        console.log("🔴 UNMOUNT: Stopping tracks from streamRef...");
         streamRef.current.getTracks().forEach((track) => {
           if (track.readyState !== "ended") {
-            console.log(
-              "🔴 UNMOUNT: Force stopping streamRef track:",
-              track.kind
-            );
             track.stop();
           }
         });
@@ -489,12 +379,9 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
 
   useEffect(() => {
     const emergencyCleanup = () => {
-      console.log("🚨 EMERGENCY: Stopping all camera activity");
-
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach((track) => {
-          console.log("🚨 EMERGENCY: Stopping track:", track.kind);
           track.stop();
         });
         videoRef.current.srcObject = null;
@@ -502,7 +389,6 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => {
-          console.log("🚨 EMERGENCY: Stopping streamRef track:", track.kind);
           track.stop();
         });
         streamRef.current = null;
@@ -510,13 +396,11 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
     };
 
     const handleBeforeUnload = () => {
-      console.log("🔴 Window unloading - emergency camera cleanup");
       emergencyCleanup();
     };
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        console.log("🔴 Page hidden - emergency camera stop");
         emergencyCleanup();
       }
     };
@@ -546,21 +430,15 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-heading text-white">{title}</h2>
-          <button
-            onClick={() => {
-              console.log("🔴 Close button clicked - cleaning up camera");
-              checkActiveStreams();
-              cleanup();
-              setTimeout(() => {
-                console.log("🔍 Post-cleanup verification:");
-                checkActiveStreams();
-              }, 200);
-              setTimeout(() => {
-                onClose();
-              }, 300);
-            }}
-            className="text-gray-300 hover:text-white p-2"
-          >
+            <button
+              onClick={() => {
+                cleanup();
+                setTimeout(() => {
+                  onClose();
+                }, 300);
+              }}
+              className="text-gray-300 hover:text-white p-2"
+            >
             <svg
               className="w-6 h-6"
               fill="none"
@@ -579,30 +457,23 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
 
         {/* Fixed Error/Message Area - Always takes up space */}
         <div className="mb-4 min-h-[80px]">
-          {/* Invalid QR Message Display */}
-          {invalidQRMessage && (
-            <div className="p-3 bg-red-900 border border-red-600 rounded-lg animate-pulse">
-              <p className="text-red-200 text-sm font-body flex items-center gap-2">
-                <span>❌</span>
-                <span>Uh oh! You found a QR code, just not the right one. Keep looking!</span>
-              </p>
-            </div>
-          )}
-
-          {/* Scan Result Display */}
-          {scanResult && (
-            <div className="p-3 bg-green-900 border border-green-600 rounded-lg">
-              <p className="text-green-200 text-sm font-body">
-                ✅ Valid QR Code Detected!
-              </p>
-              <p className="text-green-300 text-xs mt-1 font-mono break-all">
-                {scanResult}
+          {/* Validation Message Display */}
+          {validationMessage && (
+            <div className={`p-3 rounded-lg ${
+              validationMessage.includes("❌") 
+                ? "bg-red-900 border border-red-600 animate-pulse" 
+                : "bg-blue-900 border border-blue-600"
+            }`}>
+              <p className={`text-sm font-body ${
+                validationMessage.includes("❌") ? "text-red-200" : "text-blue-200"
+              }`}>
+                {validationMessage}
               </p>
             </div>
           )}
 
           {/* Error Display */}
-          {error && (
+          {error && !validationMessage && (
             <div className="p-3 bg-red-900 border border-red-600 rounded-lg">
               <p className="text-red-200 text-sm mb-2">⚠️ {error}</p>
               <div className="flex gap-2">
@@ -732,26 +603,9 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
             {isProcessingQR && (
               <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                    <svg
-                      className="w-8 h-8 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-green-400 font-body text-lg">
-                    Valid QR Code Scanned!
-                  </p>
-                  <p className="text-gray-300 text-sm">
-                    Processing checkpoint...
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                  <p className="text-white font-body text-lg">
+                    Processing...
                   </p>
                 </div>
               </div>

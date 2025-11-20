@@ -18,7 +18,6 @@ import OTPPage from "./components/OTPPage";
 import Dashboard from "./components/Dashboard";
 import AdminPage from "./components/AdminPage";
 import WelcomePage from "./components/WelcomePage";
-import ClaimPrize from "./components/ClaimPrize";
 
 // Context to share state across components
 const AppContext = React.createContext<{
@@ -191,16 +190,6 @@ const AppContent: React.FC = () => {
         }
       />
       <Route path="/admin" element={<AdminPageWrapper />} />
-      <Route
-        path="/claim"
-        element={
-          isAuthenticated ? (
-            <ClaimPrize />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
       <Route
         path="*"
         element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />}

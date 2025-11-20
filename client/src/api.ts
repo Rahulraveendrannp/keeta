@@ -530,7 +530,7 @@ export class ScavengerAPI {
     phoneNumber: string
   ): Promise<ApiResponse<any>> {
     try {
-      console.log("🔍 API: Checking if user is claimed...", { phoneNumber });
+      console.log("🔍 API: Checking if user games are claimed...", { phoneNumber });
 
       const response = await fetch(
         `${API_BASE}/admin/check-claimed/${phoneNumber}`,
@@ -559,9 +559,69 @@ export class ScavengerAPI {
     }
   }
 
-  static async toggleClaimStatus(userId: string): Promise<ApiResponse<any>> {
+  static async getUserQRCodes(phoneNumber: string): Promise<ApiResponse<any>> {
     try {
-      console.log("🔄 API: Toggling claim status...", { userId });
+      console.log("🎫 API: Getting user QR codes...", { phoneNumber });
+
+      const response = await fetch(
+        `${API_BASE}/admin/user-qr-codes/${phoneNumber}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+      console.log("🎫 API: Get user QR codes response:", data);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data?.message || "Failed to get user QR codes",
+        };
+      }
+
+      return { success: true, data: data.data };
+    } catch (error: any) {
+      console.error("Failed to get user QR codes:", error);
+      return { success: false, error: error?.message || "Network error" };
+    }
+  }
+
+  static async scanQRCode(qrCode: string): Promise<ApiResponse<any>> {
+    try {
+      console.log("📱 API: Scanning QR code...", { qrCode });
+
+      const response = await fetch(`${API_BASE}/admin/scan-qr`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ qrCode }),
+      });
+
+      const data = await response.json();
+      console.log("📱 API: Scan QR code response:", data);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data?.message || "Failed to scan QR code",
+        };
+      }
+
+      return { success: true, data: data };
+    } catch (error: any) {
+      console.error("Failed to scan QR code:", error);
+      return { success: false, error: error?.message || "Network error" };
+    }
+  }
+
+  static async toggleClaimStatus(userId: string, gameNumber?: number): Promise<ApiResponse<any>> {
+    try {
+      console.log("🔄 API: Toggling claim status...", { userId, gameNumber });
 
       const response = await fetch(`${API_BASE}/admin/toggle-claim-status`, {
         method: "POST",
@@ -570,6 +630,7 @@ export class ScavengerAPI {
         },
         body: JSON.stringify({
           userId,
+          gameNumber,
         }),
       });
 

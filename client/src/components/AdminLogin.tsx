@@ -39,18 +39,18 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5DC] flex items-center justify-center p-4 font-body">
-      <div className="bg-[#F4EDE3] rounded-xl shadow-lg p-8 max-w-md w-full">
+    <div className="min-h-screen bg-[#FFE41F] flex items-center justify-center p-4 font-body">
+      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="bg-[#FF5900]/10 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-            <Lock className="w-10 h-10 text-[#FF5900]" />
+          <div className="bg-[#11CC9A]/10 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+            <Lock className="w-10 h-10 text-[#11CC9A]" />
           </div>
-          <h1 className="text-2xl font-heading text-[#FF5900] mb-2">
+          <h1 className="text-2xl font-heading text-[#11CC9A] mb-2">
             Admin Login
           </h1>
           <p className="text-gray-600 text-sm">
-            Access Keeta booth management system
+            Access Find the Card admin panel
           </p>
         </div>
 
@@ -69,7 +69,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF5900] focus:border-transparent transition-colors"
+                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-transparent transition-colors"
                 placeholder="Enter username"
                 required
               />
@@ -89,7 +89,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF5900] focus:border-transparent transition-colors"
+                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-transparent transition-colors"
                 placeholder="Enter password"
                 required
               />
@@ -122,7 +122,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-[#FF5900] text-white py-3 px-4 rounded-lg hover:bg-[#E54D00] transition-colors font-body disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-[#11CC9A] text-white py-3 px-4 rounded-lg hover:opacity-90 transition-colors font-body disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isLoading ? (
               <>

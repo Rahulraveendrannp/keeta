@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { CheckCircle, Gift, LogOut, QrCode } from "lucide-react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { CheckCircle, Gift, LogOut, QrCode, X } from "lucide-react";
 import { ScavengerAPI } from "../api";
 import SimpleQRScanner from "./SimpleQRScanner";
+import QRCodeLib from "qrcode";
 
 interface DashboardProps {
   phoneNumber: string;
@@ -49,21 +49,23 @@ const GAME_TASKS: CardInfo[] = [
 ];
 
 const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [completedCards, setCompletedCards] = useState<number[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardInfo | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [isClaimed, setIsClaimed] = useState(false);
+  const [gameClaims, setGameClaims] = useState<Record<number, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userName, setUserName] = useState<string>("Player");
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedGameQR, setSelectedGameQR] = useState<{gameId: number, qrCode: string} | null>(null);
+  const [userQRCodes, setUserQRCodes] = useState<Record<number, string>>({});
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const completedSet = useMemo(() => new Set(completedCards), [completedCards]);
   const totalCompleted = completedCards.length;
   const totalCards = GAME_TASKS.length;
   const progressPercentage = Math.round((totalCompleted / totalCards) * 100);
-  const canClaim = totalCompleted === totalCards && !isClaimed;
 
   useEffect(() => {
     const initialise = async () => {
@@ -80,8 +82,10 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             ? progressResponse.data.completedCards.map(Number)
             : [];
           setCompletedCards(completedIds);
-          if (progressResponse.data.userName) {
-            setUserName(progressResponse.data.userName);
+          // Get userName from data if available
+          const userData = progressResponse.data as { userName?: string; completedCards?: number[] };
+          if (userData.userName) {
+            setUserName(userData.userName);
           }
         } else if (progressResponse.error?.includes("Session expired")) {
           onLogout();
@@ -89,7 +93,25 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
         }
 
         if (claimResponse.success && claimResponse.data) {
-          setIsClaimed(Boolean(claimResponse.data.isClaimed));
+          const claims = claimResponse.data.gameClaims || {};
+          setGameClaims({
+            1: claims.game1 || false,
+            2: claims.game2 || false,
+            3: claims.game3 || false,
+            4: claims.game4 || false,
+          });
+        }
+
+        // Get user QR codes
+        const qrResponse = await ScavengerAPI.getUserQRCodes(phoneNumber);
+        if (qrResponse.success && qrResponse.data) {
+          const qrCodes = qrResponse.data.gameQRCodes || {};
+          setUserQRCodes({
+            1: qrCodes.game1 || '',
+            2: qrCodes.game2 || '',
+            3: qrCodes.game3 || '',
+            4: qrCodes.game4 || '',
+          });
         }
       } catch (error) {
         console.error("Error loading progress:", error);
@@ -111,7 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
     setErrorMessage("");
   };
 
-  const handleScanSuccess = async () => {
+  const handleScanSuccess = async (): Promise<void> => {
     if (!selectedCard) return;
 
     try {
@@ -147,14 +169,41 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
     setErrorMessage("");
   };
 
-  const handleClaim = async () => {
-    if (!canClaim) {
-      setErrorMessage("Finish scanning all four cards to claim your reward.");
-      return;
+  const handleShowQRCode = (gameId: number) => {
+    const qrCode = userQRCodes[gameId];
+    if (qrCode) {
+      setSelectedGameQR({ gameId, qrCode });
+      setShowQRModal(true);
+    } else {
+      setErrorMessage(`QR code not available for Game ${gameId}`);
     }
-
-    navigate("/claim");
   };
+
+  const handleCloseQRModal = () => {
+    setShowQRModal(false);
+    setSelectedGameQR(null);
+  };
+
+  useEffect(() => {
+    if (showQRModal && selectedGameQR && qrCanvasRef.current) {
+      QRCodeLib.toCanvas(
+        qrCanvasRef.current,
+        selectedGameQR.qrCode,
+        {
+          width: 300,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        },
+        (error) => {
+          if (error) console.error("Error generating QR code:", error);
+        }
+      );
+    }
+  }, [showQRModal, selectedGameQR]);
 
   if (isLoading) {
     return (
@@ -189,21 +238,6 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
                   />
                 </div>
               </div>
-            </div>
-            
-            {/* Claim button on right side below progress */}
-            <div className="flex flex-col gap-2 sm:ml-4">
-              <button
-                onClick={handleClaim}
-                disabled={!canClaim}
-                className={`px-6 py-2 rounded-full font-body text-sm transition-colors whitespace-nowrap ${
-                  canClaim
-                    ? "bg-[#11CC9A] text-white hover:opacity-90"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                {isClaimed ? "Reward Claimed" : "Claim"}
-              </button>
             </div>
           </div>
         </header>
@@ -242,19 +276,33 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
                     {task.description}
                   </p>
                 </div>
-                <div className="mt-6">
-                  <button
-                    onClick={() => handleOpenScanner(task)}
-                    disabled={isCompleted || isSubmitting}
-                    className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-body text-sm transition-colors ${
-                      isCompleted
-                        ? "bg-[#11CC9A] text-white"
-                        : "bg-[#11CC9A] text-white hover:opacity-90 disabled:opacity-60"
-                    }`}
-                  >
-                    {!isCompleted && <QrCode className="w-4 h-4" />}
-                    {isCompleted ? "Completed" : "Scan"}
-                  </button>
+                <div className="mt-6 space-y-2">
+                  {!isCompleted ? (
+                    <button
+                      onClick={() => handleOpenScanner(task)}
+                      disabled={isSubmitting}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90 disabled:opacity-60"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      Scan
+                    </button>
+                  ) : gameClaims[task.id] ? (
+                    <button
+                      disabled
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-body text-sm bg-gray-400 text-white cursor-not-allowed"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Claimed
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleShowQRCode(task.id)}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90"
+                    >
+                      <Gift className="w-4 h-4" />
+                      Claim
+                    </button>
+                  )}
                 </div>
               </article>
             );
@@ -291,9 +339,46 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             <SimpleQRScanner
               title=""
               expectedQRCode={selectedCard.qrCode}
-              onScan={handleScanSuccess}
+              onScan={() => { handleScanSuccess(); }}
               onClose={handleCloseScanner}
             />
+          </div>
+        </div>
+      )}
+
+      {showQRModal && selectedGameQR && (
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+            <button
+              onClick={handleCloseQRModal}
+              className="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <h3 className="text-2xl font-heading text-[#11CC9A] mb-2 text-center">
+              Game {selectedGameQR.gameId} QR Code
+            </h3>
+            <p className="text-sm text-gray-600 mb-6 text-center">
+              Show this QR code to the admin to claim your reward for{" "}
+              {GAME_TASKS.find(t => t.id === selectedGameQR.gameId)?.title || `Game ${selectedGameQR.gameId}`}
+            </p>
+
+            <div className="flex flex-col items-center justify-center">
+              <div className="bg-white p-4 rounded-xl border-4 border-[#11CC9A] shadow-lg">
+                <canvas ref={qrCanvasRef} />
+              </div>
+              <p className="mt-4 text-xs text-gray-500 text-center">
+                Code: {selectedGameQR.qrCode}
+              </p>
+            </div>
+
+            <button
+              onClick={handleCloseQRModal}
+              className="mt-6 w-full bg-[#11CC9A] text-white px-6 py-3 rounded-full hover:opacity-90 transition-colors font-body"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

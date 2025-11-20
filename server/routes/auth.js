@@ -176,6 +176,22 @@ router.post('/verify-otp', validateOTP, asyncHandler(async (req, res, next) => {
   user.otpExpires = undefined;
   user.otpAttempts = 0;
   user.isVerified = true;
+
+  // Generate QR codes for games if not already generated
+  if (!user.gameQRCodes || !user.gameQRCodes.game1) {
+    console.log('🎫 Generating game QR codes for user:', user.phoneNumber);
+    try {
+      const qrCodes = await User.generateAllGameQRCodes();
+      user.gameQRCodes = qrCodes;
+      console.log('✅ Game QR codes generated:', qrCodes);
+    } catch (error) {
+      console.error('❌ Error generating game QR codes:', error);
+      // Continue without QR codes - they can be generated later
+    }
+  } else {
+    console.log('✅ User already has game QR codes');
+  }
+
   await user.save();
 
   // Generate session data

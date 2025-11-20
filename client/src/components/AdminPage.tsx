@@ -4,15 +4,14 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  ToggleLeft,
-  ToggleRight,
   LogOut,
-  Gift,
   BarChart3,
   CheckCircle,
+  QrCode,
 } from "lucide-react";
 import { ScavengerAPI } from "../api";
 import AdminLogin from "./AdminLogin";
+import SimpleQRScanner from "./SimpleQRScanner";
 
 interface AdminStatistics {
   totalUsers: number;
@@ -31,12 +30,26 @@ interface AdminUser {
   _id: string;
   phoneNumber: string;
   voucherCode?: string;
-  isClaimed: boolean;
   cardsCompleted: number;
   totalCards: number;
   gameCompleted: boolean;
   createdAt?: string;
   lastQRScanAt?: string;
+  gameClaims?: {
+    game1: boolean;
+    game2: boolean;
+    game3: boolean;
+    game4: boolean;
+  };
+  gameQRCodes?: {
+    game1?: string;
+    game2?: string;
+    game3?: string;
+    game4?: string;
+  };
+  profile?: {
+    name?: string;
+  };
 }
 
 const ITEMS_PER_PAGE = 25;
@@ -53,9 +66,11 @@ const AdminPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [statistics, setStatistics] = useState<AdminStatistics | null>(null);
-  const [showVoucherInput, setShowVoucherInput] = useState(false);
-  const [voucherInput, setVoucherInput] = useState("");
-  const [voucherError, setVoucherError] = useState("");
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [qrScanMessage, setQRScanMessage] = useState("");
+  const [selectedUserForScan, setSelectedUserForScan] = useState<AdminUser | null>(null);
+  const [userQRCodes, setUserQRCodes] = useState<string[]>([]);
+  const [isLoadingQRCodes, setIsLoadingQRCodes] = useState(false);
 
   useEffect(() => {
     checkAuthentication();
@@ -142,33 +157,10 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const handleVoucherClaim = async () => {
-    try {
-      setVoucherError("");
-      if (!voucherInput.trim()) {
-        setVoucherError("❌ Please enter a voucher code");
-        return;
-      }
 
-      const response = await ScavengerAPI.markUserAsClaimed(voucherInput.trim().toUpperCase());
-      if (response.success) {
-        setClaimMessage("✅ Reward claimed successfully!");
-        setVoucherInput("");
-        setShowVoucherInput(false);
-        loadUsers(currentPage, searchTerm);
-        loadStatistics();
-      } else {
-        setVoucherError(`❌ ${response.error || "Invalid voucher code or user not found"}`);
-      }
-    } catch (error) {
-      console.error("Error claiming reward:", error);
-      setVoucherError("❌ Error processing claim. Please try again.");
-    }
-  };
-
-  const handleToggleClaimStatus = async (userId: string) => {
+  const handleToggleClaimStatus = async (userId: string, gameNumber?: number) => {
     try {
-      const response = await ScavengerAPI.toggleClaimStatus(userId);
+      const response = await ScavengerAPI.toggleClaimStatus(userId, gameNumber);
       if (response.success) {
         setClaimMessage("✅ Claim status updated successfully!");
         loadUsers(currentPage, searchTerm);
@@ -182,6 +174,80 @@ const AdminPage: React.FC = () => {
     } finally {
       setTimeout(() => setClaimMessage(""), 3000);
     }
+  };
+
+  const handleOpenQRScannerForUser = async (user: AdminUser) => {
+    setSelectedUserForScan(user);
+    setQRScanMessage("");
+    setIsLoadingQRCodes(true);
+    
+    try {
+      const response = await ScavengerAPI.getUserQRCodes(user.phoneNumber);
+      
+      if (response.success && response.data?.gameQRCodes) {
+        const qrCodes = response.data.gameQRCodes;
+        const qrCodeArray = [
+          qrCodes.game1,
+          qrCodes.game2,
+          qrCodes.game3,
+          qrCodes.game4,
+        ].filter(code => code);
+        
+        setUserQRCodes(qrCodeArray);
+        setShowQRScanner(true);
+      } else {
+        setQRScanMessage(`❌ Failed to load QR codes for ${user.profile?.name || user.phoneNumber}`);
+      }
+    } catch {
+      setQRScanMessage(`❌ Error loading QR codes`);
+    } finally {
+      setIsLoadingQRCodes(false);
+    }
+  };
+
+  const handleQRScan = async (qrData: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      setQRScanMessage("");
+      
+      // Validate against the fetched QR codes
+      const isValid = userQRCodes.includes(qrData);
+      
+      if (!isValid) {
+        const userName = selectedUserForScan?.profile?.name || selectedUserForScan?.phoneNumber || "this user";
+        const errorMsg = `❌ This QR code doesn't belong to ${userName}`;
+        return { success: false, message: errorMsg };
+      }
+      
+      const response = await ScavengerAPI.scanQRCode(qrData);
+      
+      if (response.success) {
+        const gameNumber = response.data?.gameNumber || "unknown";
+        const userName = selectedUserForScan?.profile?.name || response.data?.phoneNumber || "User";
+        const successMsg = `✅ Game ${gameNumber} claimed for ${userName}!`;
+        setQRScanMessage(successMsg);
+        
+        setShowQRScanner(false);
+        setSelectedUserForScan(null);
+        setUserQRCodes([]);
+        loadUsers(currentPage, searchTerm);
+        loadStatistics();
+        
+        setTimeout(() => setQRScanMessage(""), 5000);
+        
+        return { success: true };
+      } else {
+        const errorMsg = `❌ ${response.error || "Invalid QR code"}`;
+        return { success: false, message: errorMsg };
+      }
+    } catch {
+      return { success: false, message: "❌ Error processing QR code scan" };
+    }
+  };
+
+  const handleCloseQRScanner = () => {
+    setShowQRScanner(false);
+    setSelectedUserForScan(null);
+    setUserQRCodes([]);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -309,14 +375,7 @@ const AdminPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6">
-          <button
-            onClick={() => setShowVoucherInput(true)}
-            className="inline-flex items-center justify-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors font-body"
-          >
-            <Gift className="w-4 h-4" />
-            Claim with Voucher
-          </button>
+        <div className="flex justify-end mt-6">
           <button
             onClick={() => {
               loadUsers(currentPage, searchTerm);
@@ -327,20 +386,32 @@ const AdminPage: React.FC = () => {
             Refresh Data
           </button>
         </div>
+
+        {qrScanMessage && (
+          <div
+            className={`mt-4 p-3 rounded-lg text-center font-body ${
+              qrScanMessage.includes("✅") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+            }`}
+          >
+            {qrScanMessage}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="p-6 border-b border-gray-200">
+          <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-xl font-heading text-gray-800">Players</h3>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            </div>
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#11CC9A] w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by phone number or voucher code..."
+                placeholder="🔍 Search by name or phone number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-transparent"
+                className="w-full pl-11 pr-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-[#11CC9A] transition-colors font-body"
               />
             </div>
           </div>
@@ -360,69 +431,105 @@ const AdminPage: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-[#11CC9A]/5 border-b border-gray-200 text-xs text-gray-600 uppercase tracking-wider">
-                  <th className="text-left py-3 px-6">Phone Number</th>
-                  <th className="text-center py-3 px-6">Cards</th>
-                  <th className="text-center py-3 px-6">Completed</th>
-                  <th className="text-center py-3 px-6">Voucher Code</th>
-                  <th className="text-center py-3 px-6">Last Scan</th>
-                  <th className="text-center py-3 px-6">Claim Status</th>
+                  <th className="text-left py-3 px-4">Name</th>
+                  <th className="text-left py-3 px-4">Phone</th>
+                  <th className="text-center py-3 px-3">Cards</th>
+                  <th className="text-center py-3 px-3">Game 1</th>
+                  <th className="text-center py-3 px-3">Game 2</th>
+                  <th className="text-center py-3 px-3">Game 3</th>
+                  <th className="text-center py-3 px-3">Game 4</th>
+                  <th className="text-center py-3 px-4">Scan QR</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {usersList.map((user) => (
+                {usersList.map((user) => {
+                  const gameClaims = user.gameClaims || { game1: false, game2: false, game3: false, game4: false };
+                  return (
                   <tr key={user._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-4 px-6 text-sm text-gray-900 font-body">
+                      <td className="py-3 px-4 text-sm text-gray-900 font-body">
+                        {user.profile?.name || "N/A"}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-700 font-mono">
                       {user.phoneNumber || "Unknown"}
                     </td>
-                    <td className="py-4 px-6 text-center text-sm text-gray-700">
+                      <td className="py-3 px-3 text-center text-sm text-gray-700">
                       {user.cardsCompleted}/{user.totalCards}
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      {user.gameCompleted ? (
-                        <span className="text-green-600 font-body">Yes</span>
-                      ) : (
-                        <span className="text-gray-500">No</span>
-                      )}
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          onClick={() => handleToggleClaimStatus(user._id, 1)}
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                            gameClaims.game1
+                              ? "bg-[#11CC9A] text-white"
+                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
+                          }`}
+                          title={gameClaims.game1 ? "Game 1 Claimed" : "Game 1 Not Claimed"}
+                        >
+                          {gameClaims.game1 ? "✓" : "○"}
+                        </button>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      {user.voucherCode ? (
-                        <span className="bg-[#11CC9A]/10 text-[#11CC9A] px-2 py-1 rounded font-mono text-sm">
-                          {user.voucherCode}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          onClick={() => handleToggleClaimStatus(user._id, 2)}
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                            gameClaims.game2
+                              ? "bg-[#11CC9A] text-white"
+                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
+                          }`}
+                          title={gameClaims.game2 ? "Game 2 Claimed" : "Game 2 Not Claimed"}
+                        >
+                          {gameClaims.game2 ? "✓" : "○"}
+                        </button>
                     </td>
-                    <td className="py-4 px-6 text-center text-sm text-gray-700">
-                      {user.lastQRScanAt
-                        ? `${new Date(user.lastQRScanAt).toLocaleDateString()} ${new Date(user.lastQRScanAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}`
-                        : "Never"}
+                      <td className="py-3 px-3 text-center">
+                        <button
+                          onClick={() => handleToggleClaimStatus(user._id, 3)}
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                            gameClaims.game3
+                              ? "bg-[#11CC9A] text-white"
+                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
+                          }`}
+                          title={gameClaims.game3 ? "Game 3 Claimed" : "Game 3 Not Claimed"}
+                        >
+                          {gameClaims.game3 ? "✓" : "○"}
+                        </button>
                     </td>
-                    <td className="py-4 px-6 text-center">
+                      <td className="py-3 px-3 text-center">
                       <button
-                        onClick={() => handleToggleClaimStatus(user._id)}
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm transition-colors ${
-                          user.isClaimed
-                            ? "bg-[#11CC9A]/10 text-[#11CC9A] hover:bg-[#11CC9A]/20"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {user.isClaimed ? (
-                          <>
-                            <ToggleRight className="w-4 h-4" /> Claimed
+                          onClick={() => handleToggleClaimStatus(user._id, 4)}
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                            gameClaims.game4
+                              ? "bg-[#11CC9A] text-white"
+                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
+                          }`}
+                          title={gameClaims.game4 ? "Game 4 Claimed" : "Game 4 Not Claimed"}
+                        >
+                          {gameClaims.game4 ? "✓" : "○"}
+                        </button>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => handleOpenQRScannerForUser(user)}
+                          disabled={isLoadingQRCodes}
+                          className="inline-flex items-center justify-center gap-1 bg-[#11CC9A] text-white hover:opacity-90 px-3 py-2 rounded-lg transition-colors text-xs font-body disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Scan user's QR code"
+                        >
+                          {isLoadingQRCodes ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              Loading...
                           </>
                         ) : (
                           <>
-                            <ToggleLeft className="w-4 h-4" /> Not Claimed
+                              <QrCode className="w-3 h-3" />
+                              Scan QR
                           </>
                         )}
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -454,48 +561,71 @@ const AdminPage: React.FC = () => {
         )}
       </div>
 
-      {showVoucherInput && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-xl font-heading mb-2">Claim Reward by Voucher</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter the voucher code shown on the player's device to mark their reward as claimed.
+      {/* QR Scanner Modal */}
+      {showQRScanner && selectedUserForScan && (
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1A1A1A] text-white rounded-2xl shadow-2xl w-full max-w-xl p-6 relative">
+            <button
+              onClick={handleCloseQRScanner}
+              className="absolute top-4 right-4 text-gray-300 hover:text-white text-2xl"
+            >
+              ✕
+            </button>
+
+            <h3 className="text-2xl font-heading mb-2">
+              Scan QR Code for {selectedUserForScan.profile?.name || "User"}
+            </h3>
+            <p className="text-sm text-gray-300 mb-2">
+              Phone: <span className="font-mono text-[#11CC9A]">{selectedUserForScan.phoneNumber}</span>
             </p>
-            <input
-              type="text"
-              value={voucherInput}
-              onChange={(e) => {
-                setVoucherInput(e.target.value.toUpperCase());
-                setVoucherError("");
-              }}
-              placeholder="Enter 4-character voucher code"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-transparent uppercase"
-              maxLength={6}
-            />
-            {voucherError && (
-              <div className="mt-2 text-sm text-red-600">{voucherError}</div>
+            <p className="text-sm text-gray-400 mb-2">
+              Validating against {userQRCodes.length} QR codes for this user
+            </p>
+            <p className="text-sm text-gray-300 mb-4">
+              Ask the user to show their game QR code, then hold it inside the frame to scan.
+            </p>
+
+            {userQRCodes.length > 0 ? (
+              <>
+                <div className="bg-[#11CC9A]/10 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-gray-300 mb-2">
+                    📱 Ready to scan {userQRCodes.length} QR codes for this user
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {userQRCodes.map((code, index) => (
+                      <button
+                        key={index}
+                        onClick={async () => {
+                          await handleQRScan(code);
+                        }}
+                        className="text-xs font-mono text-[#11CC9A] bg-black/20 rounded px-2 py-1 hover:bg-black/40 transition-colors text-left"
+                        title="Click to test claiming this game"
+                      >
+                        Game {index + 1}: {code.substring(0, 12)}...
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    💡 Tip: Click a game code above to test, or scan the QR code from user's device
+                  </p>
+                </div>
+                <SimpleQRScanner
+                  title=""
+                  expectedQRCode=""
+                  onScan={handleQRScan}
+                  onClose={handleCloseQRScanner}
+                />
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#11CC9A] mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading QR codes...</p>
+              </div>
             )}
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={handleVoucherClaim}
-                className="flex-1 bg-[#11CC9A] text-white py-2 rounded-lg hover:opacity-90 transition-colors font-body"
-              >
-                Claim Reward
-              </button>
-              <button
-                onClick={() => {
-                  setShowVoucherInput(false);
-                  setVoucherInput("");
-                  setVoucherError("");
-                }}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors font-body"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

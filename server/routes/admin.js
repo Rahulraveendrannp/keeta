@@ -47,7 +47,8 @@ router.get('/all-users', catchAsync(async (req, res) => {
         $match: {
           $or: [
             { phoneNumber: { $regex: search, $options: 'i' } },
-            { voucherCode: { $regex: search, $options: 'i' } }
+            { voucherCode: { $regex: search, $options: 'i' } },
+            { 'profile.name': { $regex: search, $options: 'i' } }
           ]
         }
       }] : []),
@@ -92,11 +93,13 @@ router.get('/all-users', catchAsync(async (req, res) => {
           phoneNumber: 1,
           createdAt: 1,
           lastQRScanAt: 1,
-          isClaimed: { $ifNull: ['$isClaimed', false] },
           voucherCode: 1,
           cardsCompleted: 1,
           totalCards: 1,
-          gameCompleted: 1
+          gameCompleted: 1,
+          gameClaims: { $ifNull: ['$gameClaims', { game1: false, game2: false, game3: false, game4: false }] },
+          gameQRCodes: 1,
+          'profile.name': 1
         }
       },
       {
@@ -142,103 +145,78 @@ router.get('/all-users', catchAsync(async (req, res) => {
   }
 }));
 
-// Generate voucher code for user
-router.post('/generate-voucher', catchAsync(async (req, res) => {
-  const { phoneNumber } = req.body;
-  
-  console.log('🎫 Admin: Generating voucher code...', { phoneNumber });
 
-  if (!phoneNumber) {
-    throw new AppError('Phone number is required', 400);
+// Scan QR code and mark specific game as claimed
+router.post('/scan-qr', catchAsync(async (req, res) => {
+  const { qrCode } = req.body;
+  
+  console.log('📱 Admin: Processing QR code scan...', { qrCode });
+
+  if (!qrCode) {
+    throw new AppError('QR code is required', 400);
   }
 
   try {
-    const user = await User.findOne({ phoneNumber });
-    if (!user) {
-      throw new AppError('User not found', 404);
+    // Determine which game this QR code belongs to
+    let gameNumber = null;
+    let user = null;
+
+    // Try to find user with this QR code in any of the game fields
+    for (let i = 1; i <= 4; i++) {
+      const query = {};
+      query[`gameQRCodes.game${i}`] = qrCode;
+      const foundUser = await User.findOne(query);
+      if (foundUser) {
+        user = foundUser;
+        gameNumber = i;
+        break;
+      }
     }
 
-    // Check if user already has a voucher code
-    if (user.voucherCode) {
-      // Return existing voucher code
-      console.log(`🎫 Admin: User ${phoneNumber} already has voucher code: ${user.voucherCode}`);
-      
-      return res.status(200).json({
-        success: true,
-        data: {
-          voucherCode: user.voucherCode,
-          phoneNumber: user.phoneNumber,
-          userId: user._id
-        }
-      });
+    if (!user || !gameNumber) {
+      throw new AppError('Invalid QR code or user not found', 404);
     }
 
-    // No generation here: voucher codes are created at registration time
-    // If we reach here, this user unexpectedly has no voucher code
-    throw new AppError('User has no voucher code. Voucher codes are created at registration.', 400);
-
-  } catch (error) {
-    console.error('❌ Admin: Error generating voucher code:', error);
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to generate voucher code', 500);
-  }
-}));
-
-// Mark user as claimed (for voucher code)
-router.post('/mark-claimed', catchAsync(async (req, res) => {
-  const { voucherCode } = req.body;
-  
-  console.log('🏆 Admin: Processing voucher code for claim...', { voucherCode });
-
-  if (!voucherCode) {
-    throw new AppError('Voucher code is required', 400);
-  }
-
-  try {
-    // Find user by voucher code
-    const user = await User.findOne({ voucherCode: voucherCode.toUpperCase() });
-    if (!user) {
-      throw new AppError('Invalid voucher code or user not found', 404);
-    }
+    const gameKey = `game${gameNumber}`;
 
     // Check if already claimed
-    if (user.isClaimed) {
-      throw new AppError('User has already claimed their reward', 400);
+    if (user.gameClaims[gameKey]) {
+      throw new AppError(`User has already claimed reward for game ${gameNumber}`, 400);
     }
 
-    // Mark as claimed
-    user.isClaimed = true;
+    // Mark game as claimed
+    user.gameClaims[gameKey] = true;
+    user.markModified('gameClaims');
     await user.save();
 
-    console.log(`🏆 Admin: Successfully marked user ${user.phoneNumber} as claimed`);
+    console.log(`📱 Admin: Successfully marked game ${gameNumber} as claimed for user ${user.phoneNumber}`);
 
     res.status(200).json({
       success: true,
-      message: `User ${user.phoneNumber} marked as claimed successfully!`,
       data: {
+        gameNumber: gameNumber,
         phoneNumber: user.phoneNumber,
-        userId: user._id,
-        isClaimed: true,
-        voucherCode: user.voucherCode
-      }
+        gameClaimed: true,
+        allGamesClaimed: Object.values(user.gameClaims).every(claimed => claimed)
+      },
+      message: `Game ${gameNumber} marked as claimed for user ${user.phoneNumber}`
     });
 
   } catch (error) {
-    console.error('❌ Admin: Error marking user as claimed:', error);
+    console.error('❌ Admin: Error scanning QR code:', error);
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError('Failed to mark user as claimed', 500);
+    throw new AppError('Failed to process QR code scan', 500);
   }
 }));
 
-// Check if user is claimed
+
+// Check if user games are claimed
 router.get('/check-claimed/:phoneNumber', catchAsync(async (req, res) => {
   const { phoneNumber } = req.params;
   
-  console.log('🔍 Admin: Checking if user is claimed...', { phoneNumber });
+  console.log('🔍 Admin: Checking game claim status...', { phoneNumber });
 
   try {
     const user = await User.findOne({ phoneNumber });
@@ -249,7 +227,8 @@ router.get('/check-claimed/:phoneNumber', catchAsync(async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        isClaimed: user.isClaimed || false
+        gameClaims: user.gameClaims || { game1: false, game2: false, game3: false, game4: false },
+        allGamesClaimed: user.gameClaims ? Object.values(user.gameClaims).every(claimed => claimed) : false
       }
     });
 
@@ -262,11 +241,11 @@ router.get('/check-claimed/:phoneNumber', catchAsync(async (req, res) => {
   }
 }));
 
-// Toggle claim status for user
+// Toggle claim status for specific game
 router.post('/toggle-claim-status', catchAsync(async (req, res) => {
-  const { userId } = req.body;
+  const { userId, gameNumber } = req.body;
   
-  console.log('🔄 Admin: Toggling claim status...', { userId });
+  console.log('🔄 Admin: Toggling game claim status...', { userId, gameNumber });
 
   if (!userId) {
     throw new AppError('User ID is required', 400);
@@ -278,11 +257,27 @@ router.post('/toggle-claim-status', catchAsync(async (req, res) => {
       throw new AppError('User not found', 404);
     }
 
-    // Toggle claim status
-    user.isClaimed = !user.isClaimed;
+    // If gameNumber specified, toggle that game only; otherwise toggle all games
+    if (gameNumber && gameNumber >= 1 && gameNumber <= 4) {
+      const gameKey = `game${gameNumber}`;
+      user.gameClaims[gameKey] = !user.gameClaims[gameKey];
+      console.log(`🔄 Admin: Toggled game ${gameNumber} claim status to ${user.gameClaims[gameKey]}`);
+    } else {
+      // Toggle all games
+      const allClaimed = Object.values(user.gameClaims).every(claimed => claimed);
+      user.gameClaims = {
+        game1: !allClaimed,
+        game2: !allClaimed,
+        game3: !allClaimed,
+        game4: !allClaimed
+      };
+      console.log(`🔄 Admin: Toggled all games claim status to ${!allClaimed}`);
+    }
+
+    user.markModified('gameClaims');
     await user.save();
 
-    console.log(`🔄 Admin: Successfully toggled claim status for user ${user.phoneNumber} to ${user.isClaimed}`);
+    console.log(`🔄 Admin: Successfully toggled claim status for user ${user.phoneNumber}`);
 
     res.status(200).json({
       success: true,
@@ -290,7 +285,7 @@ router.post('/toggle-claim-status', catchAsync(async (req, res) => {
       data: {
         phoneNumber: user.phoneNumber,
         userId: user._id,
-        isClaimed: user.isClaimed,
+        gameClaims: user.gameClaims,
         voucherCode: user.voucherCode
       }
     });
@@ -334,7 +329,7 @@ router.get('/statistics', catchAsync(async (req, res) => {
       },
       {
         $project: {
-          isClaimed: { $ifNull: ['$isClaimed', false] },
+          gameClaims: { $ifNull: ['$gameClaims', { game1: false, game2: false, game3: false, game4: false }] },
           cardsCompleted: 1,
           totalCards: 1,
           gameCompleted: 1,
@@ -344,7 +339,20 @@ router.get('/statistics', catchAsync(async (req, res) => {
     ]);
 
     const totalUsers = users.length;
-    const totalClaimed = users.filter((user) => user.isClaimed).length;
+    
+    // Count users with at least one game claimed
+    const totalClaimed = users.filter((user) => {
+      const claims = user.gameClaims || {};
+      return Object.values(claims).some(claimed => claimed);
+    }).length;
+    
+    // Count total game claims across all users
+    let totalGameClaims = 0;
+    users.forEach((user) => {
+      const claims = user.gameClaims || {};
+      totalGameClaims += Object.values(claims).filter(claimed => claimed).length;
+    });
+
     const completionBuckets = {
       '0': 0,
       '1': 0,
@@ -386,7 +394,8 @@ router.get('/statistics', catchAsync(async (req, res) => {
       success: true,
       data: {
         totalUsers,
-        totalClaimed,
+        totalClaimed, // Users with at least one game claimed
+        totalGameClaims, // Total number of game claims
         totalUnclaimed: totalUsers - totalClaimed,
         completionBuckets: {
           '0/4': completionBuckets['0'],
@@ -407,6 +416,37 @@ router.get('/statistics', catchAsync(async (req, res) => {
     console.error('❌ Admin: Error getting statistics:', error);
     console.error('❌ Admin: Error stack:', error.stack);
     throw new AppError('Failed to get statistics', 500);
+  }
+}));
+
+// Get user QR codes
+router.get('/user-qr-codes/:phoneNumber', catchAsync(async (req, res) => {
+  const { phoneNumber } = req.params;
+  
+  console.log('🎫 Admin: Getting user QR codes...', { phoneNumber });
+
+  try {
+    const user = await User.findOne({ phoneNumber });
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        phoneNumber: user.phoneNumber,
+        userName: user.profile?.name || 'Player',
+        gameQRCodes: user.gameQRCodes || {},
+        gameClaims: user.gameClaims || { game1: false, game2: false, game3: false, game4: false }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Admin: Error getting user QR codes:', error);
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to get user QR codes', 500);
   }
 }));
 
