@@ -4,8 +4,6 @@ import { ScavengerAPI } from "../api";
 import QRCodeLib from "qrcode";
 import type { UserQRData, GameClaims } from "../types";
 
-interface ClaimPrizeProps {}
-
 const GAME_NAMES = [
   "🧠 AI Photobooth",
   "👀 Peek-a-Booth",
@@ -13,7 +11,7 @@ const GAME_NAMES = [
   "🐆 Catch-a-Tail",
 ];
 
-const ClaimPrize: React.FC<ClaimPrizeProps> = () => {
+const ClaimPrize: React.FC = () => {
   const navigate = useNavigate();
   const [userQRData, setUserQRData] = useState<UserQRData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,8 +42,7 @@ const ClaimPrize: React.FC<ClaimPrizeProps> = () => {
       } else {
         setError(response.error || "Failed to load QR codes");
       }
-    } catch (err) {
-      console.error("Error loading QR codes:", err);
+    } catch {
       setError("Failed to load QR codes");
     } finally {
       setIsLoading(false);
@@ -72,9 +69,7 @@ const ClaimPrize: React.FC<ClaimPrizeProps> = () => {
                 light: "#FFFFFF",
               },
             },
-            (error) => {
-              if (error) console.error(`Error generating QR code for game ${gameNum}:`, error);
-            }
+            () => {}
           );
         }
       });

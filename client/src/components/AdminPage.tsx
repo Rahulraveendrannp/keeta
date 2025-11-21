@@ -7,7 +7,6 @@ import {
   LogOut,
   BarChart3,
   CheckCircle,
-  QrCode,
 } from "lucide-react";
 import { ScavengerAPI } from "../api";
 import AdminLogin from "./AdminLogin";
@@ -510,9 +509,9 @@ const AdminPage: React.FC = () => {
                       <td className="py-3 px-4 text-center">
                         <button
                           onClick={() => handleOpenQRScannerForUser(user)}
-                          disabled={isLoadingQRCodes}
-                          className="inline-flex items-center justify-center gap-1 bg-[#11CC9A] text-white hover:opacity-90 px-3 py-2 rounded-lg transition-colors text-xs font-body disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Scan user's QR code"
+                          disabled={isLoadingQRCodes || user.cardsCompleted === user.totalCards}
+                          className="inline-flex items-center justify-center bg-[#11CC9A] text-white hover:opacity-90 px-3 py-2 rounded-lg transition-colors text-xs font-body disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={user.cardsCompleted === user.totalCards ? "All games completed - no QR codes to scan" : "Scan user's QR code"}
                         >
                           {isLoadingQRCodes ? (
                             <>
@@ -520,10 +519,7 @@ const AdminPage: React.FC = () => {
                               Loading...
                           </>
                         ) : (
-                          <>
-                              <QrCode className="w-3 h-3" />
-                              Scan QR
-                          </>
+                          "Scan QR"
                         )}
                       </button>
                     </td>

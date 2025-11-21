@@ -12,40 +12,25 @@ const API_BASE =
   "https://talabat-scavenger-hunt-backend-657638641053.us-central1.run.app/api";
 
 function setToken(token: string) {
-  console.log(
-    "🔐 setToken: Saving token to localStorage:",
-    token ? "Token provided" : "No token"
-  );
   localStorage.setItem("jwt_token", token);
-  console.log("🔐 setToken: Token saved successfully");
 }
 function getToken(): string | null {
-  const token = localStorage.getItem("jwt_token");
-  console.log(
-    "🔐 getToken: Retrieved token from localStorage:",
-    token ? "Token exists" : "No token found"
-  );
-  return token;
+  return localStorage.getItem("jwt_token");
 }
 function clearToken() {
-  console.log("🔐 clearToken: Clearing JWT token from localStorage");
   localStorage.removeItem("jwt_token");
-    localStorage.removeItem("keeta_game_session");
-    localStorage.removeItem("keeta_phone_number");
-  console.log("🔐 clearToken: All tokens cleared");
+  localStorage.removeItem("keeta_game_session");
+  localStorage.removeItem("keeta_phone_number");
 }
 
 export class ScavengerAPI {
   // Health check method
   static async healthCheck(): Promise<ApiResponse<any>> {
     try {
-      console.log("Checking API health...");
       const response = await fetch(`${API_BASE.replace("/api", "")}/health`);
       const data = await response.json();
-      console.log("Health check response:", data);
       return data;
     } catch (error) {
-      console.error("Health check failed:", error);
       return {
         success: false,
         error: "API server is not accessible",
@@ -55,22 +40,14 @@ export class ScavengerAPI {
   // User Progress Management
   static async getUserProgress(): Promise<ApiResponse<any>> {
     try {
-      console.log("🔍 getUserProgress: Attempting to get token...");
       const token = getToken();
-      console.log(
-        "🔍 getUserProgress: Token result:",
-        token ? "Token found" : "No token"
-      );
 
       if (!token) {
-        console.error("❌ getUserProgress: No authentication token found");
         return {
           success: false,
           error: "No authentication token found",
         };
       }
-
-      console.log("Fetching user progress...");
 
       const response = await fetch(`${API_BASE}/progress`, {
         method: "GET",
@@ -81,7 +58,6 @@ export class ScavengerAPI {
       });
 
       const data = await response.json();
-      console.log("User progress response:", data);
 
       // Check if token is invalid
       if (response.status === 401 || data.error?.includes("token")) {
@@ -95,7 +71,6 @@ export class ScavengerAPI {
 
       return data;
     } catch (error) {
-      console.error("Error fetching user progress:", error);
       return {
         success: false,
         error: "Failed to fetch user progress",
@@ -114,8 +89,6 @@ export class ScavengerAPI {
         };
       }
 
-      console.log("🎴 Completing card:", cardId);
-
       const response = await fetch(`${API_BASE}/progress/find-the-card/${cardId}/complete`, {
         method: "POST",
         headers: {
@@ -125,10 +98,8 @@ export class ScavengerAPI {
       });
 
       const data = await response.json();
-      console.log("🎴 Card completion response:", data);
       return data;
     } catch (error) {
-      console.error("❌ Error completing card:", error);
       return {
         success: false,
         error: "Failed to complete card",
@@ -142,20 +113,11 @@ export class ScavengerAPI {
     try {
       const token = getToken();
       if (!token) {
-        console.log("❌ updateCurrentState: No authentication token found");
         return {
           success: false,
           error: "No authentication token found",
         };
       }
-
-      console.log("🔍 updateCurrentState: Updating current state:", {
-        currentPage,
-      });
-      console.log(
-        "🔍 updateCurrentState: API URL:",
-        `${API_BASE}/progress/state`
-      );
 
       const response = await fetch(`${API_BASE}/progress/state`, {
         method: "POST",
@@ -166,14 +128,9 @@ export class ScavengerAPI {
         body: JSON.stringify({ currentPage }),
       });
 
-      console.log("🔍 updateCurrentState: Response status:", response.status);
-      console.log("🔍 updateCurrentState: Response ok:", response.ok);
-
       const data = await response.json();
-      console.log("🔍 updateCurrentState: Update state response:", data);
       return data;
     } catch (error) {
-      console.error("❌ updateCurrentState: Error updating state:", error);
       return {
         success: false,
         error: "Failed to update state",
@@ -193,7 +150,6 @@ export class ScavengerAPI {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error("Error fetching leaderboard:", error);
       return {
         success: false,
         error: "Failed to fetch leaderboard",
@@ -206,8 +162,6 @@ export class ScavengerAPI {
     name: string
   ): Promise<ApiResponse<{ otpSent: boolean; isTestNumber?: boolean }>> {
     try {
-      console.log("Sending SMS OTP to:", phoneNumber);
-
       const response = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -217,7 +171,6 @@ export class ScavengerAPI {
       const data = await response.json();
 
       if (data.success) {
-        console.log("SMS OTP sent successfully");
         return {
           success: true,
           data: {
@@ -232,7 +185,6 @@ export class ScavengerAPI {
         };
       }
     } catch (error) {
-      console.error("SMS OTP error:", error);
       return {
         success: false,
         error: "Network error. Please try again.",
@@ -246,8 +198,6 @@ export class ScavengerAPI {
     otpCode: string
   ): Promise<OTPVerificationResponse> {
     try {
-      console.log("Verifying SMS OTP for:", phoneNumber, "Code:", otpCode);
-
       const response = await fetch(`${API_BASE}/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,23 +205,9 @@ export class ScavengerAPI {
       });
 
       const data = await response.json();
-      console.log("🔐 API: Server response data:", data);
-      console.log(
-        "🔐 API: Checking if token exists in response:",
-        data.data?.token ? "Token found" : "No token in response"
-      );
 
       if (data.success && data.data?.token) {
-        console.log("🔐 API: Received token from server:", data.data.token);
         setToken(data.data.token);
-        console.log("🔐 API: Token saved to localStorage");
-
-        // Verify token was saved
-        const savedToken = getToken();
-        console.log(
-          "🔐 API: Verified saved token:",
-          savedToken ? "Token exists" : "No token found"
-        );
 
         // Create game session
         const gameSession = {
@@ -290,7 +226,6 @@ export class ScavengerAPI {
         };
       }
     } catch (error) {
-      console.error("SMS verification error:", error);
       return {
         success: false,
         error: "Network error. Please try again.",
@@ -333,15 +268,12 @@ export class ScavengerAPI {
   // Logout
   static async logout() {
     try {
-      console.log("🔐 Logout: Clearing all authentication data...");
       clearToken();
-      // Clear all related localStorage items
-    localStorage.removeItem("keeta_game_session");
-    localStorage.removeItem("keeta_phone_number");
+      localStorage.removeItem("keeta_game_session");
+      localStorage.removeItem("keeta_phone_number");
       localStorage.removeItem("jwt_token");
-      console.log("🔐 Logout: All authentication data cleared successfully");
     } catch (error) {
-      console.error("Logout error:", error);
+      // Silent fail
     }
   }
 
@@ -349,13 +281,8 @@ export class ScavengerAPI {
     try {
       const token = getToken();
       if (!token) {
-        console.log("❌ getGameProgress: No authentication token found");
         return { success: false, error: "Not authenticated" };
       }
-
-      console.log("🔍 getGameProgress: Fetching game progress...");
-      console.log("🔍 getGameProgress: API URL:", `${API_BASE}/game/progress`);
-      console.log("🔍 getGameProgress: Token available:", token ? "Yes" : "No");
 
       const response = await fetch(`${API_BASE}/game/progress`, {
         headers: {
@@ -363,18 +290,10 @@ export class ScavengerAPI {
         },
       });
 
-      console.log("🔍 getGameProgress: Response status:", response.status);
-      console.log("🔍 getGameProgress: Response ok:", response.ok);
-
       const json = await response.json();
-      console.log("🔍 getGameProgress: Game progress response:", json);
 
       // Check if token is invalid
       if (response.status === 401 || json.error?.includes("token")) {
-        console.log(
-          "🔍 getGameProgress: Token invalid, clearing and redirecting"
-        );
-        // Clear invalid token and redirect to registration
         clearToken();
         return {
           success: false,
@@ -383,20 +302,14 @@ export class ScavengerAPI {
       }
 
       if (!response.ok) {
-        console.log("🔍 getGameProgress: Response not ok, returning error");
         return {
           success: false,
           error: json?.message || "Failed to load progress",
         };
       }
 
-      console.log(
-        "🔍 getGameProgress: Successfully loaded progress:",
-        json.data
-      );
       return { success: true, data: json.data };
     } catch (error: any) {
-      console.error("❌ getGameProgress: Error fetching game progress:", error);
       return { success: false, error: error?.message || "Network error" };
     }
   }
@@ -530,8 +443,6 @@ export class ScavengerAPI {
     phoneNumber: string
   ): Promise<ApiResponse<any>> {
     try {
-      console.log("🔍 API: Checking if user games are claimed...", { phoneNumber });
-
       const response = await fetch(
         `${API_BASE}/admin/check-claimed/${phoneNumber}`,
         {
@@ -543,7 +454,6 @@ export class ScavengerAPI {
       );
 
       const data = await response.json();
-      console.log("🔍 API: Check claimed response:", data);
 
       if (!response.ok) {
         return {
@@ -554,15 +464,12 @@ export class ScavengerAPI {
 
       return { success: true, data: data.data };
     } catch (error: any) {
-      console.error("Failed to check claim status:", error);
       return { success: false, error: error?.message || "Network error" };
     }
   }
 
   static async getUserQRCodes(phoneNumber: string): Promise<ApiResponse<any>> {
     try {
-      console.log("🎫 API: Getting user QR codes...", { phoneNumber });
-
       const response = await fetch(
         `${API_BASE}/admin/user-qr-codes/${phoneNumber}`,
         {
@@ -574,7 +481,6 @@ export class ScavengerAPI {
       );
 
       const data = await response.json();
-      console.log("🎫 API: Get user QR codes response:", data);
 
       if (!response.ok) {
         return {
@@ -585,15 +491,12 @@ export class ScavengerAPI {
 
       return { success: true, data: data.data };
     } catch (error: any) {
-      console.error("Failed to get user QR codes:", error);
       return { success: false, error: error?.message || "Network error" };
     }
   }
 
   static async scanQRCode(qrCode: string): Promise<ApiResponse<any>> {
     try {
-      console.log("📱 API: Scanning QR code...", { qrCode });
-
       const response = await fetch(`${API_BASE}/admin/scan-qr`, {
         method: "POST",
         headers: {
@@ -603,7 +506,6 @@ export class ScavengerAPI {
       });
 
       const data = await response.json();
-      console.log("📱 API: Scan QR code response:", data);
 
       if (!response.ok) {
         return {
@@ -612,7 +514,7 @@ export class ScavengerAPI {
         };
       }
 
-      return { success: true, data: data };
+      return { success: true, data: data.data };
     } catch (error: any) {
       console.error("Failed to scan QR code:", error);
       return { success: false, error: error?.message || "Network error" };

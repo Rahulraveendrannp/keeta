@@ -256,7 +256,6 @@ const App: React.FC = () => {
           const response = await ScavengerAPI.getUserProgress();
           if (response.success) {
             setUserProgress(response.data);
-            console.log("User progress loaded:", response.data);
           } else {
             console.error("Failed to load user progress:", response.error);
           }

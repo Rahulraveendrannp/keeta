@@ -65,7 +65,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
   const completedSet = useMemo(() => new Set(completedCards), [completedCards]);
   const totalCompleted = completedCards.length;
   const totalCards = GAME_TASKS.length;
-  const progressPercentage = Math.round((totalCompleted / totalCards) * 100);
+  const totalClaimed = Object.values(gameClaims).filter(claimed => claimed).length;
 
   useEffect(() => {
     const initialise = async () => {
@@ -113,8 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             4: qrCodes.game4 || '',
           });
         }
-      } catch (error) {
-        console.error("Error loading progress:", error);
+      } catch {
         setErrorMessage("Failed to load your progress. Please try again.");
       } finally {
         setIsLoading(false);
@@ -154,8 +153,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
       } else {
         setErrorMessage(response.error || "Unable to record this scan. Please try again.");
       }
-    } catch (error) {
-      console.error("Error completing card:", error);
+    } catch {
       setErrorMessage("Something went wrong while saving your scan. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -198,9 +196,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             light: "#FFFFFF",
           },
         },
-        (error) => {
-          if (error) console.error("Error generating QR code:", error);
-        }
+            () => {}
       );
     }
   }, [showQRModal, selectedGameQR]);
@@ -229,13 +225,36 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
               <div className="mt-4">
                 <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-2">
                   <span>{totalCompleted}/{totalCards} games completed</span>
-                  <span>{progressPercentage}% complete</span>
+                  <span>{totalClaimed}/{totalCards} claimed</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3">
-                  <div
-                    className="bg-[#11CC9A] h-2 sm:h-3 rounded-full transition-all duration-500"
-                    style={{ width: `${progressPercentage}%` }}
-                  />
+                <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden flex gap-0.5">
+                  {[1, 2, 3, 4].map((gameId) => {
+                    const isCompleted = completedSet.has(gameId);
+                    const isClaimed = gameClaims[gameId];
+                    
+                    let bgColor = "bg-gray-300"; // Not completed
+                    if (isClaimed) {
+                      bgColor = "bg-[#11CC9A]"; // Dark green for claimed
+                    } else if (isCompleted) {
+                      bgColor = "bg-[#A7F3D0]"; // Light green for completed
+                    }
+                    
+                    return (
+                      <div
+                        key={gameId}
+                        className={`${bgColor} flex-1 transition-all duration-300 ${
+                          isCompleted || isClaimed ? "opacity-100" : "opacity-50"
+                        }`}
+                        title={
+                          isClaimed 
+                            ? `Game ${gameId}: Claimed ✓` 
+                            : isCompleted 
+                            ? `Game ${gameId}: Completed, waiting to claim` 
+                            : `Game ${gameId}: Not started`
+                        }
+                      />
+                    );
+                  })}
                 </div>
               </div>
             </div>
