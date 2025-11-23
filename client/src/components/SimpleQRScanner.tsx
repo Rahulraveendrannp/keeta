@@ -160,10 +160,11 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
   };
 
   const validateQRCode = (scannedData: string): boolean => {
-    // If expectedQRCode is empty, accept any QR code (for admin scanning)
+    // If expectedQRCode is empty, accept any QR code (validation happens in Dashboard)
     if (!expectedQRCode || expectedQRCode === "") {
       return true;
     }
+    // For exact matching, check if scanned data matches expected
     return scannedData === expectedQRCode;
   };
 
@@ -230,7 +231,7 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
               setIsScanning(false);
               setIsProcessingQR(true);
               setInvalidQRMessage("");
-              setValidationMessage("Processing...");
+              setValidationMessage("");
 
               cleanup();
 
@@ -240,7 +241,7 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
                 // Check if result indicates failure
                 if (result && !result.success) {
                   setIsProcessingQR(false);
-                  setValidationMessage(result.message || "❌ Invalid QR code");
+                  setValidationMessage(result.message || "Invalid QR code. Please try again.");
                   setIsScanning(true);
                   initializeCamera();
                   
@@ -252,11 +253,12 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
 
               return;
             } else {
+               // Invalid QR code - show subtle feedback
                setInvalidQRMessage("invalid");
 
                setTimeout(() => {
                  setInvalidQRMessage("");
-               }, 3000);
+               }, 2000);
              }
           }
         }
@@ -456,34 +458,28 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
         </div>
 
         {/* Fixed Error/Message Area - Always takes up space */}
-        <div className="mb-4 min-h-[80px]">
+        <div className="mb-4 min-h-[40px] flex items-center justify-center">
           {/* Validation Message Display */}
           {validationMessage && (
-            <div className={`p-3 rounded-lg ${
-              validationMessage.includes("❌") 
-                ? "bg-red-900 border border-red-600 animate-pulse" 
-                : "bg-blue-900 border border-blue-600"
+            <p className={`text-sm font-body text-center ${
+              validationMessage.toLowerCase().includes("invalid") || validationMessage.toLowerCase().includes("error")
+                ? "text-red-400" 
+                : "text-blue-400"
             }`}>
-              <p className={`text-sm font-body ${
-                validationMessage.includes("❌") ? "text-red-200" : "text-blue-200"
-              }`}>
-                {validationMessage}
-              </p>
-            </div>
+              {validationMessage}
+            </p>
           )}
 
           {/* Error Display */}
           {error && !validationMessage && (
-            <div className="p-3 bg-red-900 border border-red-600 rounded-lg">
-              <p className="text-red-200 text-sm mb-2">⚠️ {error}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleRetry}
-                  className="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700"
-                >
-                  Retry
-                </button>
-              </div>
+            <div className="text-center">
+              <p className="text-red-400 text-sm mb-2">{error}</p>
+              <button
+                onClick={handleRetry}
+                className="text-red-300 text-sm hover:text-red-200 underline"
+              >
+                Retry
+              </button>
             </div>
           )}
         </div>
@@ -601,11 +597,11 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
 
             {/* Processing Overlay */}
             {isProcessingQR && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                  <p className="text-white font-body text-lg">
-                    Processing...
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-20 backdrop-blur-sm">
+                <div className="text-center bg-white/10 rounded-lg p-6">
+                  <div className="animate-spin rounded-full h-10 w-10 border-3 border-[#11CC9A] border-t-transparent mx-auto mb-3"></div>
+                  <p className="text-white font-body text-base font-medium">
+                    Verifying QR code...
                   </p>
                 </div>
               </div>

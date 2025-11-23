@@ -69,6 +69,12 @@ const userSchema = new mongoose.Schema({
     game3: { type: String, unique: true, sparse: true },
     game4: { type: String, unique: true, sparse: true }
   },
+  // Track which tier was completed for games 1-3 (1 or 2) based on station QR code scanned
+  gameTiers: {
+    game1: { type: Number, enum: [1, 2], default: null },
+    game2: { type: Number, enum: [1, 2], default: null },
+    game3: { type: Number, enum: [1, 2], default: null }
+  },
   // Per-game claim status
   gameClaims: {
     game1: { type: Boolean, default: false },
@@ -274,7 +280,7 @@ userSchema.statics.generateUniqueVoucherCode = async function() {
 userSchema.statics.generateUniqueGameQRCode = async function(gameNumber) {
   const generateQRCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = `GAME${gameNumber}_`;
+    let result = `KEETO_GAME${gameNumber}_`;
     for (let i = 0; i < 8; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -304,13 +310,13 @@ userSchema.statics.generateUniqueGameQRCode = async function(gameNumber) {
     }
     
     // Fallback with timestamp
-    const fallbackCode = `GAME${gameNumber}_TEMP_${Date.now().toString().slice(-8)}`;
+    const fallbackCode = `KEETO_GAME${gameNumber}_TEMP_${Date.now().toString().slice(-8)}`;
     console.log('⚠️ Using fallback QR code:', fallbackCode);
     return fallbackCode;
     
   } catch (error) {
     console.error('❌ Error in generateUniqueGameQRCode:', error);
-    const fallbackCode = `GAME${gameNumber}_ERROR_${Date.now().toString().slice(-8)}`;
+    const fallbackCode = `KEETO_GAME${gameNumber}_ERROR_${Date.now().toString().slice(-8)}`;
     console.log('🆘 Using error fallback QR code:', fallbackCode);
     return fallbackCode;
   }

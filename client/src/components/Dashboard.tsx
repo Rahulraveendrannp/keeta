@@ -20,30 +20,30 @@ interface CardInfo {
 const GAME_TASKS: CardInfo[] = [
   {
     id: 1,
-    title: "🧠 AI Photobooth",
+    title: "🎯 Pose Battle",
     description: "Play the quiz and get your AI avatar.",
-    qrCode: "AI_PHOTOBOOTH_QR_001",
+    qrCode: "KEETO_GAME1_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Lunchbox.svg",
   },
   {
     id: 2,
-    title: "👀 Peek-a-Booth",
+    title: "🏍️ Rider Dash",
     description: "Peek inside and answer to win.",
-    qrCode: "PEEK_A_BOOTH_QR_002",
+    qrCode: "KEETO_GAME2_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Runner.svg",
   },
   {
     id: 3,
-    title: "🛵 Delivery Dash",
+    title: "⚽ Ball Catch",
     description: "Finish the dash and score high.",
-    qrCode: "DELIVERY_DASH_QR_003",
+    qrCode: "KEETO_GAME3_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Talabeat.svg",
   },
   {
     id: 4,
     title: "🐆 Catch-a-Tail",
     description: "Catch the tails and test reflex.",
-    qrCode: "CATCH_A_TAIL_QR_004",
+    qrCode: "KEETO_GAME4",
     icon: "/Scavenger.svg",
   },
 ];
@@ -60,6 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedGameQR, setSelectedGameQR] = useState<{gameId: number, qrCode: string} | null>(null);
   const [userQRCodes, setUserQRCodes] = useState<Record<number, string>>({});
+  const [gameTiers, setGameTiers] = useState<Record<number, number>>({});
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const completedSet = useMemo(() => new Set(completedCards), [completedCards]);
@@ -102,10 +103,20 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           });
         }
 
-        // Get user QR codes
+        // Get user QR codes and tiers
         const qrResponse = await ScavengerAPI.getUserQRCodes(phoneNumber);
         if (qrResponse.success && qrResponse.data) {
           const qrCodes = qrResponse.data.gameQRCodes || {};
+          const tiers = qrResponse.data.gameTiers || {};
+          
+          // Store tiers
+          setGameTiers({
+            1: tiers.game1 || 0,
+            2: tiers.game2 || 0,
+            3: tiers.game3 || 0,
+          });
+          
+          // Set QR codes (one QR code per game, tier is tracked separately)
           setUserQRCodes({
             1: qrCodes.game1 || '',
             2: qrCodes.game2 || '',
@@ -132,15 +143,37 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
     setErrorMessage("");
   };
 
-  const handleScanSuccess = async (): Promise<void> => {
-    if (!selectedCard) return;
+  const handleScanSuccess = async (scannedQRCode: string): Promise<{ success: boolean; message?: string }> => {
+    if (!selectedCard) {
+      return { success: false, message: "No card selected" };
+    }
+
+    // Validate QR code on frontend before sending to backend
+    let validQRCodes: string[] = [];
+    if (selectedCard.id <= 3) {
+      // Games 1-3: accept either TIER1 or TIER2
+      validQRCodes = [
+        `KEETO_GAME${selectedCard.id}_TIER1`,
+        `KEETO_GAME${selectedCard.id}_TIER2`
+      ];
+    } else {
+      // Game 4: only one QR code
+      validQRCodes = [`KEETO_GAME4`];
+    }
+
+    // Check if scanned QR code matches any valid code
+    if (!validQRCodes.includes(scannedQRCode)) {
+      const errorMsg = `Invalid QR code`;
+      setErrorMessage(errorMsg);
+      return { success: false, message: errorMsg };
+    }
 
     try {
       setIsSubmitting(true);
       setErrorMessage("");
 
-        await ScavengerAPI.updateCurrentState("find-the-card");
-      const response = await ScavengerAPI.completeCard(selectedCard.id);
+      await ScavengerAPI.updateCurrentState("find-the-card");
+      const response = await ScavengerAPI.completeCard(selectedCard.id, scannedQRCode);
 
       if (response.success) {
         setCompletedCards((prev) => {
@@ -148,13 +181,40 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           next.add(selectedCard.id);
           return Array.from(next).sort((a, b) => a - b);
         });
+        
+        // Refresh QR codes to get updated tier information
+        const qrResponse = await ScavengerAPI.getUserQRCodes(phoneNumber);
+        if (qrResponse.success && qrResponse.data) {
+          const qrCodes = qrResponse.data.gameQRCodes || {};
+          const tiers = qrResponse.data.gameTiers || {};
+          
+          setGameTiers({
+            1: tiers.game1 || 0,
+            2: tiers.game2 || 0,
+            3: tiers.game3 || 0,
+          });
+          
+          // Update QR codes (one QR code per game)
+          setUserQRCodes({
+            1: qrCodes.game1 || '',
+            2: qrCodes.game2 || '',
+            3: qrCodes.game3 || '',
+            4: qrCodes.game4 || '',
+          });
+        }
+        
         setShowScanner(false);
         setSelectedCard(null);
+        return { success: true };
       } else {
-        setErrorMessage(response.error || "Unable to record this scan. Please try again.");
+        const errorMsg = response.error || "Unable to record this scan. Please try again.";
+        setErrorMessage(errorMsg);
+        return { success: false, message: errorMsg };
       }
     } catch {
-      setErrorMessage("Something went wrong while saving your scan. Please try again.");
+      const errorMsg = "Something went wrong while saving your scan. Please try again.";
+      setErrorMessage(errorMsg);
+      return { success: false, message: errorMsg };
     } finally {
       setIsSubmitting(false);
     }
@@ -167,13 +227,36 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
     setErrorMessage("");
   };
 
-  const handleShowQRCode = (gameId: number) => {
-    const qrCode = userQRCodes[gameId];
-    if (qrCode) {
-      setSelectedGameQR({ gameId, qrCode });
-      setShowQRModal(true);
-    } else {
-      setErrorMessage(`QR code not available for Game ${gameId}`);
+  const handleShowQRCode = async (gameId: number) => {
+    // Always refresh QR codes and tier info before showing QR code
+    try {
+      const qrResponse = await ScavengerAPI.getUserQRCodes(phoneNumber);
+      if (qrResponse.success && qrResponse.data) {
+        const qrCodes = qrResponse.data.gameQRCodes || {};
+        const tiers = qrResponse.data.gameTiers || {};
+        
+        // Update tier information
+        setGameTiers({
+          1: tiers.game1 || 0,
+          2: tiers.game2 || 0,
+          3: tiers.game3 || 0,
+        });
+        
+        // Get QR code for this game
+        const qrCode = qrCodes[`game${gameId}`] || '';
+        
+        if (qrCode) {
+          setUserQRCodes(prev => ({ ...prev, [gameId]: qrCode }));
+          setSelectedGameQR({ gameId, qrCode });
+          setShowQRModal(true);
+        } else {
+          setErrorMessage(`QR code not available for Game ${gameId}. Please contact support.`);
+        }
+      } else {
+        setErrorMessage(`Failed to load QR code for Game ${gameId}. Please try again.`);
+      }
+    } catch {
+      setErrorMessage(`Error loading QR code for Game ${gameId}. Please try again.`);
     }
   };
 
@@ -228,11 +311,22 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
                   <span>{totalClaimed}/{totalCards} claimed</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden relative">
-                  <div 
-                    className="bg-[#11CC9A] h-full transition-all duration-300 rounded-full"
-                    style={{ width: `${(totalCompleted / totalCards) * 100}%` }}
-                    title={`${totalCompleted} out of ${totalCards} games completed`}
-                  />
+                  {/* Completed but not claimed - lighter green */}
+                  {totalCompleted > 0 && (
+                    <div 
+                      className="bg-[#7DD3C0] h-full transition-all duration-300 rounded-full absolute left-0 top-0"
+                      style={{ width: `${(totalCompleted / totalCards) * 100}%` }}
+                      title={`${totalCompleted} out of ${totalCards} games completed`}
+                    />
+                  )}
+                  {/* Claimed - darker green overlay */}
+                  {totalClaimed > 0 && (
+                    <div 
+                      className="bg-[#11CC9A] h-full transition-all duration-300 rounded-full absolute left-0 top-0"
+                      style={{ width: `${(totalClaimed / totalCards) * 100}%` }}
+                      title={`${totalClaimed} out of ${totalCards} games claimed`}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -330,13 +424,16 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
 
             <h3 className="text-xl font-heading mb-2">Scan Card {selectedCard.id}</h3>
             <p className="text-sm text-gray-300 mb-4">
-              Hold the QR code for {selectedCard.title} inside the frame to capture it.
+              {selectedCard.id <= 3 
+                ? `Scan either the Tier 1 (GAME${selectedCard.id}_TIER1) or Tier 2 (GAME${selectedCard.id}_TIER2) station QR code for ${selectedCard.title}.`
+                : `Hold the QR code for ${selectedCard.title} inside the frame to capture it.`
+              }
             </p>
 
             <SimpleQRScanner
               title=""
-              expectedQRCode={selectedCard.qrCode}
-              onScan={() => { handleScanSuccess(); }}
+              expectedQRCode="" // Validation happens in handleScanSuccess before API call
+              onScan={handleScanSuccess}
               onClose={handleCloseScanner}
             />
           </div>
@@ -356,10 +453,22 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             <h3 className="text-2xl font-heading text-[#11CC9A] mb-2 text-center">
               Game {selectedGameQR.gameId} QR Code
             </h3>
-            <p className="text-sm text-gray-600 mb-6 text-center">
+            <p className="text-sm text-gray-600 mb-2 text-center">
               Show this QR code to the admin to claim your reward for{" "}
               {GAME_TASKS.find(t => t.id === selectedGameQR.gameId)?.title || `Game ${selectedGameQR.gameId}`}
             </p>
+            {selectedGameQR.gameId <= 3 && (() => {
+              const tier = gameTiers[selectedGameQR.gameId];
+              // Only show tier if it's 1 or 2 (not 0, null, or undefined)
+              if (tier === 1 || tier === 2) {
+                return (
+                  <p className="text-sm font-semibold text-[#11CC9A] mb-6 text-center">
+                    Eligible for Tier {tier} Voucher
+                  </p>
+                );
+              }
+              return null;
+            })()}
 
             <div className="flex flex-col items-center justify-center">
               <div className="bg-white p-4 rounded-xl border-4 border-[#11CC9A] shadow-lg">

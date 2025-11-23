@@ -46,6 +46,11 @@ interface AdminUser {
     game3?: string;
     game4?: string;
   };
+  gameTiers?: {
+    game1?: number;
+    game2?: number;
+    game3?: number;
+  };
   profile?: {
     name?: string;
   };
@@ -157,23 +162,6 @@ const AdminPage: React.FC = () => {
   };
 
 
-  const handleToggleClaimStatus = async (userId: string, gameNumber?: number) => {
-    try {
-      const response = await ScavengerAPI.toggleClaimStatus(userId, gameNumber);
-      if (response.success) {
-        setClaimMessage("✅ Claim status updated successfully!");
-        loadUsers(currentPage, searchTerm);
-        loadStatistics();
-      } else {
-        setClaimMessage(`❌ ${response.error || "Failed to update claim status"}`);
-      }
-    } catch (error) {
-      console.error("Error toggling claim status:", error);
-      setClaimMessage("❌ Error updating claim status");
-    } finally {
-      setTimeout(() => setClaimMessage(""), 3000);
-    }
-  };
 
   const handleOpenQRScannerForUser = async (user: AdminUser) => {
     setSelectedUserForScan(user);
@@ -455,56 +443,152 @@ const AdminPage: React.FC = () => {
                       {user.cardsCompleted}/{user.totalCards}
                     </td>
                       <td className="py-3 px-3 text-center">
-                        <button
-                          onClick={() => handleToggleClaimStatus(user._id, 1)}
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                            gameClaims.game1
-                              ? "bg-[#11CC9A] text-white"
-                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
-                          }`}
-                          title={gameClaims.game1 ? "Game 1 Claimed" : "Game 1 Not Claimed"}
-                        >
-                          {gameClaims.game1 ? "✓" : "○"}
-                        </button>
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const tier = user.gameTiers?.game1;
+                            const isClaimed = gameClaims.game1;
+                            const isGameCompleted = user.cardsCompleted >= 1;
+                            
+                            // Only show tier if it's 1 or 2 (not 0, null, or undefined)
+                            // Convert to number to handle string "1" or number 1
+                            const tierNum = tier != null ? Number(tier) : null;
+                            const hasValidTier = tierNum === 1 || tierNum === 2;
+                            
+                            if (isClaimed) {
+                              // Show T1 or T2 inside green circle if claimed and has valid tier
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#11CC9A] text-white font-bold text-sm"
+                                  title={hasValidTier ? `Game 1 Claimed - Tier ${tierNum} Voucher` : "Game 1 Claimed"}
+                                >
+                                  {hasValidTier ? `T${tierNum}` : "✓"}
+                                </div>
+                              );
+                            } else if (hasValidTier) {
+                              // Show tier if available, regardless of completion status
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-700 font-bold text-sm border-2 border-gray-400"
+                                  title={isGameCompleted ? `Game 1 Completed - Tier ${tierNum} Eligible (Not Claimed)` : `Game 1 - Tier ${tierNum} (In Progress)`}
+                                >
+                                  T{tierNum}
+                                </div>
+                              );
+                            } else {
+                              // Show empty circle if not completed
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-400"
+                                  title="Game 1 Not Completed"
+                                >
+                                  ○
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                     </td>
                       <td className="py-3 px-3 text-center">
-                        <button
-                          onClick={() => handleToggleClaimStatus(user._id, 2)}
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                            gameClaims.game2
-                              ? "bg-[#11CC9A] text-white"
-                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
-                          }`}
-                          title={gameClaims.game2 ? "Game 2 Claimed" : "Game 2 Not Claimed"}
-                        >
-                          {gameClaims.game2 ? "✓" : "○"}
-                        </button>
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const tier = user.gameTiers?.game2;
+                            const isClaimed = gameClaims.game2;
+                            const isGameCompleted = user.cardsCompleted >= 2;
+                            
+                            // Only show tier if it's 1 or 2 (not 0, null, or undefined)
+                            // Convert to number to handle string "1" or number 1
+                            const tierNum = tier != null ? Number(tier) : null;
+                            const hasValidTier = tierNum === 1 || tierNum === 2;
+                            
+                            if (isClaimed) {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#11CC9A] text-white font-bold text-sm"
+                                  title={hasValidTier ? `Game 2 Claimed - Tier ${tierNum} Voucher` : "Game 2 Claimed"}
+                                >
+                                  {hasValidTier ? `T${tierNum}` : "✓"}
+                                </div>
+                              );
+                            } else if (hasValidTier) {
+                              // Show tier if available, regardless of completion status
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-700 font-bold text-sm border-2 border-gray-400"
+                                  title={isGameCompleted ? `Game 2 Completed - Tier ${tierNum} Eligible (Not Claimed)` : `Game 2 - Tier ${tierNum} (In Progress)`}
+                                >
+                                  T{tierNum}
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-400"
+                                  title="Game 2 Not Completed"
+                                >
+                                  ○
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                     </td>
                       <td className="py-3 px-3 text-center">
-                        <button
-                          onClick={() => handleToggleClaimStatus(user._id, 3)}
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                            gameClaims.game3
-                              ? "bg-[#11CC9A] text-white"
-                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
-                          }`}
-                          title={gameClaims.game3 ? "Game 3 Claimed" : "Game 3 Not Claimed"}
-                        >
-                          {gameClaims.game3 ? "✓" : "○"}
-                        </button>
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const tier = user.gameTiers?.game3;
+                            const isClaimed = gameClaims.game3;
+                            const isGameCompleted = user.cardsCompleted >= 3;
+                            
+                            // Only show tier if it's 1 or 2 (not 0, null, or undefined)
+                            // Convert to number to handle string "1" or number 1
+                            const tierNum = tier != null ? Number(tier) : null;
+                            const hasValidTier = tierNum === 1 || tierNum === 2;
+                            
+                            if (isClaimed) {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#11CC9A] text-white font-bold text-sm"
+                                  title={hasValidTier ? `Game 3 Claimed - Tier ${tierNum} Voucher` : "Game 3 Claimed"}
+                                >
+                                  {hasValidTier ? `T${tierNum}` : "✓"}
+                                </div>
+                              );
+                            } else if (hasValidTier) {
+                              // Show tier if available, regardless of completion status
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-700 font-bold text-sm border-2 border-gray-400"
+                                  title={isGameCompleted ? `Game 3 Completed - Tier ${tierNum} Eligible (Not Claimed)` : `Game 3 - Tier ${tierNum} (In Progress)`}
+                                >
+                                  T{tierNum}
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-400"
+                                  title="Game 3 Not Completed"
+                                >
+                                  ○
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                     </td>
                       <td className="py-3 px-3 text-center">
-                      <button
-                          onClick={() => handleToggleClaimStatus(user._id, 4)}
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                            gameClaims.game4
-                              ? "bg-[#11CC9A] text-white"
-                              : "bg-gray-200 text-gray-400 hover:bg-gray-300"
-                          }`}
-                          title={gameClaims.game4 ? "Game 4 Claimed" : "Game 4 Not Claimed"}
-                        >
-                          {gameClaims.game4 ? "✓" : "○"}
-                        </button>
+                        <div className="flex items-center justify-center">
+                          <div
+                            className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${
+                              gameClaims.game4
+                                ? "bg-[#11CC9A] text-white"
+                                : "bg-gray-200 text-gray-400"
+                            }`}
+                            title={gameClaims.game4 ? "Game 4 Claimed" : "Game 4 Not Claimed"}
+                          >
+                            {gameClaims.game4 ? "✓" : "○"}
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-center">
                         <button

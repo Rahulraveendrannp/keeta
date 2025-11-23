@@ -79,7 +79,7 @@ export class ScavengerAPI {
   }
 
 
-  static async completeCard(cardId: number): Promise<ApiResponse<any>> {
+  static async completeCard(cardId: number, scannedQRCode?: string): Promise<ApiResponse<any>> {
     try {
       const token = getToken();
       if (!token) {
@@ -95,6 +95,7 @@ export class ScavengerAPI {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ scannedQRCode }),
       });
 
       const data = await response.json();

@@ -99,6 +99,7 @@ router.get('/all-users', catchAsync(async (req, res) => {
           gameCompleted: 1,
           gameClaims: { $ifNull: ['$gameClaims', { game1: false, game2: false, game3: false, game4: false }] },
           gameQRCodes: 1,
+          gameTiers: { $ifNull: ['$gameTiers', { game1: null, game2: null, game3: null }] },
           'profile.name': 1
         }
       },
@@ -437,7 +438,8 @@ router.get('/user-qr-codes/:phoneNumber', catchAsync(async (req, res) => {
         phoneNumber: user.phoneNumber,
         userName: user.profile?.name || 'Player',
         gameQRCodes: user.gameQRCodes || {},
-        gameClaims: user.gameClaims || { game1: false, game2: false, game3: false, game4: false }
+        gameClaims: user.gameClaims || { game1: false, game2: false, game3: false, game4: false },
+        gameTiers: user.gameTiers || { game1: null, game2: null, game3: null }
       }
     });
 

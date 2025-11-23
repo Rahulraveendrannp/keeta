@@ -178,6 +178,7 @@ router.post('/verify-otp', validateOTP, asyncHandler(async (req, res, next) => {
   user.isVerified = true;
 
   // Generate QR codes for games if not already generated
+  // Check if game1 exists
   if (!user.gameQRCodes || !user.gameQRCodes.game1) {
     console.log('🎫 Generating game QR codes for user:', user.phoneNumber);
     try {

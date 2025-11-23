@@ -29,6 +29,12 @@ export interface GameQRCodes {
   game4?: string;
 }
 
+export interface GameTiers {
+  game1?: number;
+  game2?: number;
+  game3?: number;
+}
+
 export interface GameClaims {
   game1: boolean;
   game2: boolean;
@@ -41,4 +47,5 @@ export interface UserQRData {
   userName: string;
   gameQRCodes: GameQRCodes;
   gameClaims: GameClaims;
+  gameTiers?: GameTiers;
 }
