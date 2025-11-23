@@ -9,7 +9,7 @@ import type {
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ||
-  "https://talabat-scavenger-hunt-backend-657638641053.us-central1.run.app/api";
+  "https://keeta-be-657638641053.us-central1.run.app/api";
 
 function setToken(token: string) {
   localStorage.setItem("jwt_token", token);
