@@ -407,7 +407,7 @@ const AdminPage: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#11CC9A] w-5 h-5" />
               <input
                 type="text"
-                placeholder="🔍 Search by name or phone number..."
+                placeholder="Search by name or phone number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-[#11CC9A] transition-colors font-body"

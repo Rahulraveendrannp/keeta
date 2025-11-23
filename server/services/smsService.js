@@ -24,12 +24,12 @@ class SMSService {
   async sendOTP(phoneNumber, otp) {
     try {
   
-      // return {
-      //   success: true,
-      //   message: "OTP sent successfully",
-      //   otp: otp,
-      //   response: "",
-      // };
+      return {
+        success: true,
+        message: "OTP sent successfully",
+        otp: otp,
+        response: "",
+      };
 
       // Format phone number (remove + if present)
       const formattedPhone = phoneNumber.replace("+", "");

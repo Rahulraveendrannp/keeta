@@ -227,34 +227,12 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
                   <span>{totalCompleted}/{totalCards} games completed</span>
                   <span>{totalClaimed}/{totalCards} claimed</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden flex gap-0.5">
-                  {[1, 2, 3, 4].map((gameId) => {
-                    const isCompleted = completedSet.has(gameId);
-                    const isClaimed = gameClaims[gameId];
-                    
-                    let bgColor = "bg-gray-300"; // Not completed
-                    if (isClaimed) {
-                      bgColor = "bg-[#11CC9A]"; // Dark green for claimed
-                    } else if (isCompleted) {
-                      bgColor = "bg-[#A7F3D0]"; // Light green for completed
-                    }
-                    
-                    return (
-                      <div
-                        key={gameId}
-                        className={`${bgColor} flex-1 transition-all duration-300 ${
-                          isCompleted || isClaimed ? "opacity-100" : "opacity-50"
-                        }`}
-                        title={
-                          isClaimed 
-                            ? `Game ${gameId}: Claimed ✓` 
-                            : isCompleted 
-                            ? `Game ${gameId}: Completed, waiting to claim` 
-                            : `Game ${gameId}: Not started`
-                        }
-                      />
-                    );
-                  })}
+                <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden relative">
+                  <div 
+                    className="bg-[#11CC9A] h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${(totalCompleted / totalCards) * 100}%` }}
+                    title={`${totalCompleted} out of ${totalCards} games completed`}
+                  />
                 </div>
               </div>
             </div>
