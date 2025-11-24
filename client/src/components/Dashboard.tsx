@@ -72,7 +72,6 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
     const initialise = async () => {
       setIsLoading(true);
       try {
-        await ScavengerAPI.updateCurrentState("dashboard");
         const [progressResponse, claimResponse] = await Promise.all([
           ScavengerAPI.getGameProgress(),
           phoneNumber ? ScavengerAPI.checkUserClaimed(phoneNumber) : Promise.resolve({ success: false, data: { isClaimed: false } }),
@@ -172,7 +171,6 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
       setIsSubmitting(true);
       setErrorMessage("");
 
-      await ScavengerAPI.updateCurrentState("find-the-card");
       const response = await ScavengerAPI.completeCard(selectedCard.id, scannedQRCode);
 
       if (response.success) {

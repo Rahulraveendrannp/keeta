@@ -593,9 +593,9 @@ const AdminPage: React.FC = () => {
                       <td className="py-3 px-4 text-center">
                         <button
                           onClick={() => handleOpenQRScannerForUser(user)}
-                          disabled={isLoadingQRCodes || user.cardsCompleted === user.totalCards}
+                          disabled={isLoadingQRCodes || (gameClaims.game1 && gameClaims.game2 && gameClaims.game3 && gameClaims.game4)}
                           className="inline-flex items-center justify-center bg-[#11CC9A] text-white hover:opacity-90 px-3 py-2 rounded-lg transition-colors text-xs font-body disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={user.cardsCompleted === user.totalCards ? "All games completed - no QR codes to scan" : "Scan user's QR code"}
+                          title={(gameClaims.game1 && gameClaims.game2 && gameClaims.game3 && gameClaims.game4) ? "All games claimed - no QR codes to scan" : "Scan user's QR code"}
                         >
                           {isLoadingQRCodes ? (
                             <>
