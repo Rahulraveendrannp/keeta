@@ -38,13 +38,11 @@ interface AdminUser {
     game1: boolean;
     game2: boolean;
     game3: boolean;
-    game4: boolean;
   };
   gameQRCodes?: {
     game1?: string;
     game2?: string;
     game3?: string;
-    game4?: string;
   };
   gameTiers?: {
     game1?: number;
@@ -74,7 +72,7 @@ const AdminPage: React.FC = () => {
   const [qrScanMessage, setQRScanMessage] = useState("");
   const [selectedUserForScan, setSelectedUserForScan] = useState<AdminUser | null>(null);
   const [userQRCodes, setUserQRCodes] = useState<string[]>([]);
-  const [isLoadingQRCodes, setIsLoadingQRCodes] = useState(false);
+  const [loadingUserPhone, setLoadingUserPhone] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuthentication();
@@ -166,7 +164,7 @@ const AdminPage: React.FC = () => {
   const handleOpenQRScannerForUser = async (user: AdminUser) => {
     setSelectedUserForScan(user);
     setQRScanMessage("");
-    setIsLoadingQRCodes(true);
+    setLoadingUserPhone(user.phoneNumber);
     
     try {
       const response = await ScavengerAPI.getUserQRCodes(user.phoneNumber);
@@ -177,7 +175,6 @@ const AdminPage: React.FC = () => {
           qrCodes.game1,
           qrCodes.game2,
           qrCodes.game3,
-          qrCodes.game4,
         ].filter(code => code);
         
         setUserQRCodes(qrCodeArray);
@@ -188,7 +185,7 @@ const AdminPage: React.FC = () => {
     } catch {
       setQRScanMessage(`❌ Error loading QR codes`);
     } finally {
-      setIsLoadingQRCodes(false);
+      setLoadingUserPhone(null);
     }
   };
 
@@ -424,13 +421,12 @@ const AdminPage: React.FC = () => {
                   <th className="text-center py-3 px-3">Game 1</th>
                   <th className="text-center py-3 px-3">Game 2</th>
                   <th className="text-center py-3 px-3">Game 3</th>
-                  <th className="text-center py-3 px-3">Game 4</th>
                   <th className="text-center py-3 px-4">Scan QR</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {usersList.map((user) => {
-                  const gameClaims = user.gameClaims || { game1: false, game2: false, game3: false, game4: false };
+                  const gameClaims = user.gameClaims || { game1: false, game2: false, game3: false };
                   return (
                   <tr key={user._id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4 text-sm text-gray-900 font-body">
@@ -576,28 +572,14 @@ const AdminPage: React.FC = () => {
                           })()}
                         </div>
                     </td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center">
-                          <div
-                            className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${
-                              gameClaims.game4
-                                ? "bg-[#11CC9A] text-white"
-                                : "bg-gray-200 text-gray-400"
-                            }`}
-                            title={gameClaims.game4 ? "Game 4 Claimed" : "Game 4 Not Claimed"}
-                          >
-                            {gameClaims.game4 ? "✓" : "○"}
-                          </div>
-                        </div>
-                      </td>
                       <td className="py-3 px-4 text-center">
                         <button
                           onClick={() => handleOpenQRScannerForUser(user)}
-                          disabled={isLoadingQRCodes || (gameClaims.game1 && gameClaims.game2 && gameClaims.game3 && gameClaims.game4)}
+                          disabled={loadingUserPhone !== null || (gameClaims.game1 && gameClaims.game2 && gameClaims.game3)}
                           className="inline-flex items-center justify-center bg-[#11CC9A] text-white hover:opacity-90 px-3 py-2 rounded-lg transition-colors text-xs font-body disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={(gameClaims.game1 && gameClaims.game2 && gameClaims.game3 && gameClaims.game4) ? "All games claimed - no QR codes to scan" : "Scan user's QR code"}
+                          title={(gameClaims.game1 && gameClaims.game2 && gameClaims.game3) ? "All games claimed - no QR codes to scan" : "Scan user's QR code"}
                         >
-                          {isLoadingQRCodes ? (
+                          {loadingUserPhone === user.phoneNumber ? (
                             <>
                               <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                               Loading...
@@ -643,8 +625,8 @@ const AdminPage: React.FC = () => {
 
       {/* QR Scanner Modal */}
       {showQRScanner && selectedUserForScan && (
-        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1A1A1A] text-white rounded-2xl shadow-2xl w-full max-w-xl p-6 relative">
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-[#1A1A1A] text-white rounded-2xl shadow-2xl w-full max-w-xl p-4 sm:p-6 relative max-h-[95vh] overflow-y-auto">
             <button
               onClick={handleCloseQRScanner}
               className="absolute top-4 right-4 text-gray-300 hover:text-white text-2xl"

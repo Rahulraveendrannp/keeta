@@ -21,30 +21,23 @@ const GAME_TASKS: CardInfo[] = [
   {
     id: 1,
     title: "🎯 Pose Battle",
-    description: "Play the quiz and get your AI avatar.",
+    description: "Strike poses, get AI scored, win personalized avatar prints.",
     qrCode: "KEETO_GAME1_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Lunchbox.svg",
   },
   {
     id: 2,
     title: "🏍️ Rider Dash",
-    description: "Peek inside and answer to win.",
+    description: "Race through streets, collect bags, dodge obstacles for vouchers.",
     qrCode: "KEETO_GAME2_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Runner.svg",
   },
   {
     id: 3,
     title: "⚽ Ball Catch",
-    description: "Finish the dash and score high.",
+    description: "Catch falling footballs fast, earn bigger voucher rewards.",
     qrCode: "KEETO_GAME3_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Talabeat.svg",
-  },
-  {
-    id: 4,
-    title: "🐆 Catch-a-Tail",
-    description: "Catch the tails and test reflex.",
-    qrCode: "KEETO_GAME4",
-    icon: "/Scavenger.svg",
   },
 ];
 
@@ -59,7 +52,6 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
   const [userName, setUserName] = useState<string>("Player");
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedGameQR, setSelectedGameQR] = useState<{gameId: number, qrCode: string} | null>(null);
-  const [userQRCodes, setUserQRCodes] = useState<Record<number, string>>({});
   const [gameTiers, setGameTiers] = useState<Record<number, number>>({});
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -98,14 +90,12 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             1: claims.game1 || false,
             2: claims.game2 || false,
             3: claims.game3 || false,
-            4: claims.game4 || false,
           });
         }
 
         // Get user QR codes and tiers
         const qrResponse = await ScavengerAPI.getUserQRCodes(phoneNumber);
         if (qrResponse.success && qrResponse.data) {
-          const qrCodes = qrResponse.data.gameQRCodes || {};
           const tiers = qrResponse.data.gameTiers || {};
           
           // Store tiers
@@ -113,14 +103,6 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             1: tiers.game1 || 0,
             2: tiers.game2 || 0,
             3: tiers.game3 || 0,
-          });
-          
-          // Set QR codes (one QR code per game, tier is tracked separately)
-          setUserQRCodes({
-            1: qrCodes.game1 || '',
-            2: qrCodes.game2 || '',
-            3: qrCodes.game3 || '',
-            4: qrCodes.game4 || '',
           });
         }
       } catch {
@@ -148,17 +130,11 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
     }
 
     // Validate QR code on frontend before sending to backend
-    let validQRCodes: string[] = [];
-    if (selectedCard.id <= 3) {
-      // Games 1-3: accept either TIER1 or TIER2
-      validQRCodes = [
-        `KEETO_GAME${selectedCard.id}_TIER1`,
-        `KEETO_GAME${selectedCard.id}_TIER2`
-      ];
-    } else {
-      // Game 4: only one QR code
-      validQRCodes = [`KEETO_GAME4`];
-    }
+    // All games (1-3) accept either TIER1 or TIER2
+    const validQRCodes = [
+      `KEETO_GAME${selectedCard.id}_TIER1`,
+      `KEETO_GAME${selectedCard.id}_TIER2`
+    ];
 
     // Check if scanned QR code matches any valid code
     if (!validQRCodes.includes(scannedQRCode)) {
@@ -183,21 +159,12 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
         // Refresh QR codes to get updated tier information
         const qrResponse = await ScavengerAPI.getUserQRCodes(phoneNumber);
         if (qrResponse.success && qrResponse.data) {
-          const qrCodes = qrResponse.data.gameQRCodes || {};
           const tiers = qrResponse.data.gameTiers || {};
           
           setGameTiers({
             1: tiers.game1 || 0,
             2: tiers.game2 || 0,
             3: tiers.game3 || 0,
-          });
-          
-          // Update QR codes (one QR code per game)
-          setUserQRCodes({
-            1: qrCodes.game1 || '',
-            2: qrCodes.game2 || '',
-            3: qrCodes.game3 || '',
-            4: qrCodes.game4 || '',
           });
         }
         
@@ -244,7 +211,6 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
         const qrCode = qrCodes[`game${gameId}`] || '';
         
         if (qrCode) {
-          setUserQRCodes(prev => ({ ...prev, [gameId]: qrCode }));
           setSelectedGameQR({ gameId, qrCode });
           setShowQRModal(true);
         } else {
@@ -284,10 +250,27 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FFE41F] flex items-center justify-center">
-        <div className="bg-white rounded-xl p-6 text-center shadow-lg">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#11CC9A] mx-auto mb-4" />
-          <p className="text-gray-700 font-body">Loading your cards...</p>
+      <div className="min-h-screen bg-[#FFE41F] flex items-center justify-center p-4">
+        <div className="bg-transparent  p-8 sm:p-12 text-center max-w-md w-full">
+          {/* Animated Logo/Icon */}
+          <div className="relative mb-6">
+            <div className="w-20 h-20 mx-auto relative">
+              {/* Outer rotating ring */}
+              <div className="absolute inset-0 rounded-full border-4 border-[#11CC9A]/20"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#11CC9A] animate-spin"></div>
+              
+              {/* Inner pulsing circle */}
+              <div className="absolute inset-2 rounded-full bg-[#11CC9A]/10 animate-pulse"></div>
+              <div className="absolute inset-4 rounded-full bg-[#11CC9A] flex items-center justify-center">
+                <Gift className="w-6 h-6 text-white animate-bounce" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Loading text with animation */}
+          <h3 className="text-xl font-heading text-[#11CC9A] mb-2">
+            Loading your adventures
+          </h3>
         </div>
       </div>
     );
@@ -300,8 +283,8 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex-1">
               <h1 className="text-2xl sm:text-3xl font-heading text-[#11CC9A]">Welcome {userName?.split('')[0]?.toUpperCase()+userName?.slice(1)}!</h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">
-                Complete each station by scanning the QR codes. Finish all four to unlock your reward.
+              <p className="text-base text-gray-600 mt-1">
+                Complete each station by scanning the QR codes. 
               </p>
               <div className="mt-4">
                 <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-2">
@@ -337,7 +320,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           </div>
         )}
 
-        <section className="grid grid-cols-2 gap-4 sm:gap-6">
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-2 sm:px-4">
           {GAME_TASKS.map((task) => {
             const isCompleted = completedSet.has(task.id);
             return (
@@ -361,7 +344,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
                   <h2 className="text-lg font-heading text-gray-900 mb-2">
                     {task.title.split(' ').slice(1).join(' ')}
                   </h2>
-                  <p className="text-sm text-gray-600 leading-relaxed">
+                  <p className="text-xs text-gray-600 leading-relaxed">
                     {task.description}
                   </p>
                 </div>
@@ -422,10 +405,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
 
             <h3 className="text-xl font-heading mb-2">Scan Card {selectedCard.id}</h3>
             <p className="text-sm text-gray-300 mb-4">
-              {selectedCard.id <= 3 
-                ? `Scan either the Tier 1 (GAME${selectedCard.id}_TIER1) or Tier 2 (GAME${selectedCard.id}_TIER2) station QR code for ${selectedCard.title}.`
-                : `Hold the QR code for ${selectedCard.title} inside the frame to capture it.`
-              }
+              Scan either the Tier 1 (GAME{selectedCard.id}_TIER1) or Tier 2 (GAME{selectedCard.id}_TIER2) station QR code for {selectedCard.title}.
             </p>
 
             <SimpleQRScanner

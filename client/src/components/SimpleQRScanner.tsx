@@ -159,16 +159,16 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
     }
   };
 
-  const validateQRCode = (scannedData: string): boolean => {
-    // If expectedQRCode is empty, accept any QR code (validation happens in Dashboard)
-    if (!expectedQRCode || expectedQRCode === "") {
-      return true;
-    }
-    // For exact matching, check if scanned data matches expected
-    return scannedData === expectedQRCode;
-  };
-
   const startQRDetection = useCallback(() => {
+    const validateQRCode = (scannedData: string): boolean => {
+      // If expectedQRCode is empty, accept any QR code (validation happens in Dashboard)
+      if (!expectedQRCode || expectedQRCode === "") {
+        return true;
+      }
+      // For exact matching, check if scanned data matches expected
+      return scannedData === expectedQRCode;
+    };
+
     const detectQR = () => {
       if (
         videoRef.current &&
@@ -233,7 +233,11 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
               setInvalidQRMessage("");
               setValidationMessage("");
 
-              cleanup();
+              // Stop animation frame but keep camera running
+              if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = null;
+              }
 
               setTimeout(async () => {
                 const result = await onScan(qrCode.data);
@@ -242,12 +246,16 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
                 if (result && !result.success) {
                   setIsProcessingQR(false);
                   setValidationMessage(result.message || "Invalid QR code. Please try again.");
+                  // Resume scanning with existing camera - no need to reinitialize
                   setIsScanning(true);
-                  initializeCamera();
+                  startQRDetection();
                   
                   setTimeout(() => {
                     setValidationMessage("");
                   }, 3000);
+                } else {
+                  // Success - cleanup camera
+                  cleanup();
                 }
               }, 500);
 
@@ -420,15 +428,15 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
   // NEW: Dynamic viewfinder size based on device type
   const getViewfinderSize = () => {
     if (isMobile) {
-      return "w-64 h-64"; // Much larger for mobile (256px x 256px)
+      return "w-72 h-72 sm:w-80 sm:h-80"; // Much larger for mobile (288px-320px)
     }
     return "w-48 h-48"; // Original size for desktop (192px x 192px)
   };
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center">
-      <div className="bg-black text-white rounded-xl p-4 max-w-md w-full mx-4 relative">
+    <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-4">
+      <div className="bg-black text-white rounded-xl p-4 sm:p-6 max-w-md w-full mx-4 relative">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-heading text-white">{title}</h2>
@@ -487,8 +495,12 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
         {/* Fixed Camera View - Never moves */}
         <div className="relative mb-4">
           <div
-            className="relative bg-gray-900 rounded-lg overflow-hidden"
-            style={{ aspectRatio: "4/3" }}
+            className="relative bg-gray-900 rounded-lg overflow-hidden mx-auto"
+            style={{ 
+              aspectRatio: "4/3",
+              maxWidth: isMobile ? "100%" : "100%",
+              width: "100%"
+            }}
           >
             {/* Video Element */}
             <video
@@ -503,8 +515,8 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
               }}
             />
 
-            {/* Loading State */}
-            {!isCameraReady && !error && (
+            {/* Loading State - Only show if not processing QR */}
+            {!isCameraReady && !error && !isProcessingQR && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-800 z-10">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
@@ -595,13 +607,15 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({
               }
             `}</style>
 
-            {/* Processing Overlay */}
+            {/* Processing Overlay - Simplified */}
             {isProcessingQR && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 z-20 backdrop-blur-sm">
-                <div className="text-center bg-white/10 rounded-lg p-6">
-                  <div className="animate-spin rounded-full h-10 w-10 border-3 border-[#11CC9A] border-t-transparent mx-auto mb-3"></div>
-                  <p className="text-white font-body text-base font-medium">
-                    Verifying QR code...
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20">
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#11CC9A]/20 backdrop-blur-sm mb-3">
+                    <div className="w-8 h-8 border-3 border-[#11CC9A] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <p className="text-white font-body text-sm font-medium">
+                    Verifying...
                   </p>
                 </div>
               </div>
