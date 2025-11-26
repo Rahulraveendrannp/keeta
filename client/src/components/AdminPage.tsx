@@ -5,9 +5,10 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  BarChart3,
   CheckCircle,
+  QrCode,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { ScavengerAPI } from "../api";
 import AdminLogin from "./AdminLogin";
 import SimpleQRScanner from "./SimpleQRScanner";
@@ -54,14 +55,14 @@ interface AdminUser {
   };
 }
 
-const ITEMS_PER_PAGE = 25;
+const ITEMS_PER_PAGE = 12;
 
 const AdminPage: React.FC = () => {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
-  const [claimMessage, setClaimMessage] = useState("");
   const [usersList, setUsersList] = useState<AdminUser[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,9 +111,8 @@ const AdminPage: React.FC = () => {
     localStorage.removeItem("adminAuthenticated");
     localStorage.removeItem("adminLoginTime");
     setIsAuthenticated(false);
-    setClaimMessage("✅ Logged out successfully");
-    setTimeout(() => setClaimMessage(""), 3000);
   };
+
 
   const loadUsers = async (page: number = 1, search: string = "") => {
     try {
@@ -263,126 +263,21 @@ const AdminPage: React.FC = () => {
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-heading text-[#11CC9A]">Find the Card Admin</h1>
-            <p className="text-sm text-gray-600">Monitor progress, manage claims, and view live statistics.</p>
+            <h1 className="text-2xl sm:text-3xl font-heading text-[#11CC9A]">Admin Dashboard</h1>
+            <p className="text-sm text-gray-600 mt-2">Monitor progress, manage claims, and view live statistics.</p>
           </div>
           <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-full hover:opacity-90 transition-colors text-sm font-body"
+            onClick={() => navigate("/admin/game3-qr")}
+            className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors text-sm font-body shadow-lg"
           >
-            <LogOut className="w-4 h-4" />
-            Logout
+            <QrCode className="w-4 h-4" />
+            Game 3 QR Codes
           </button>
         </div>
-
-        {claimMessage && (
-          <div
-            className={`mt-4 p-3 rounded-lg text-center font-body ${
-              claimMessage.includes("✅") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            }`}
-          >
-            {claimMessage}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
-            <div className="bg-[#11CC9A]/10 p-2 rounded-lg">
-              <Users className="w-6 h-6 text-[#11CC9A]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Users</p>
-              <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoading || isLoadingStats ? "..." : statistics?.totalUsers ?? totalUsers}
-              </p>
-            </div>
-          </div>
-          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
-            <div className="bg-[#11CC9A]/10 p-2 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-[#11CC9A]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Claimed</p>
-              <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoadingStats ? "..." : statistics?.totalClaimed ?? 0}
-              </p>
-            </div>
-          </div>
-          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
-            <div className="bg-[#11CC9A]/10 p-2 rounded-lg">
-              <BarChart3 className="w-6 h-6 text-[#11CC9A]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Avg. Cards Completed</p>
-              <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoadingStats ? "..." : statistics?.overview.averageCardsCompleted ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-          <div className="bg-white rounded-xl shadow p-4">
-            <h3 className="text-lg font-heading text-gray-800 mb-3">Cards Completion Distribution</h3>
-            <div className="space-y-2">
-              {completionData.length === 0 && (
-                <p className="text-sm text-gray-500">No data available.</p>
-              )}
-              {completionData.map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between text-sm text-gray-700">
-                  <span>{label}</span>
-                  <span className="font-heading">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow p-4">
-            <h3 className="text-lg font-heading text-gray-800 mb-3">Overview</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-              <div>
-                <p className="text-xs text-gray-500">Players Completed All</p>
-                <p className="text-lg font-heading">{statistics?.overview.playersCompletedAll ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Players With Progress</p>
-                <p className="text-lg font-heading">{statistics?.overview.playersWithProgress ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Recent Activity (24h)</p>
-                <p className="text-lg font-heading">{statistics?.overview.recentActivity ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Unclaimed Rewards</p>
-                <p className="text-lg font-heading">{statistics?.totalUnclaimed ?? 0}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end mt-6">
-          <button
-            onClick={() => {
-              loadUsers(currentPage, searchTerm);
-              loadStatistics();
-            }}
-            className="inline-flex items-center justify-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors font-body"
-          >
-            Refresh Data
-          </button>
-        </div>
-
-        {qrScanMessage && (
-          <div
-            className={`mt-4 p-3 rounded-lg text-center font-body ${
-              qrScanMessage.includes("✅") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            }`}
-          >
-            {qrScanMessage}
-          </div>
-        )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      {/* Players Table Section - Moved to top for mobile */}
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-4 sm:mb-6">
         <div className="p-6 border-b border-gray-200">
           <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -623,6 +518,70 @@ const AdminPage: React.FC = () => {
         )}
       </div>
 
+      {/* Statistics Section - Simplified */}
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+        <h3 className="text-xl font-heading text-gray-800 mb-4">Statistics</h3>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
+            <div className="bg-[#11CC9A]/10 p-3 rounded-lg">
+              <Users className="w-6 h-6 text-[#11CC9A]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Total Users</p>
+              <p className="text-2xl font-heading text-[#11CC9A]">
+                {isLoading || isLoadingStats ? "..." : statistics?.totalUsers ?? totalUsers}
+              </p>
+            </div>
+          </div>
+          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
+            <div className="bg-[#11CC9A]/10 p-3 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-[#11CC9A]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Total Claimed</p>
+              <p className="text-2xl font-heading text-[#11CC9A]">
+                {isLoadingStats ? "..." : statistics?.totalClaimed ?? 0}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-50 rounded-xl p-4">
+          <h4 className="text-lg font-heading text-gray-800 mb-4">Card Completion Distribution</h4>
+          <div className="space-y-3">
+            {completionData.length === 0 ? (
+              <p className="text-sm text-gray-500">No data available.</p>
+            ) : (
+              completionData.map(({ label, value }) => {
+                // Filter to show only 0, 1, 2, 3 cards (remove 4 since we only have 3 games)
+                const cardCount = parseInt(label.split('/')[0]);
+                if (cardCount > 3) return null;
+                
+                return (
+                  <div key={label} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700 font-body">
+                      {cardCount} {cardCount === 1 ? 'Card' : 'Cards'} Completed
+                    </span>
+                    <span className="text-lg font-heading text-[#11CC9A]">{value}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {qrScanMessage && (
+          <div
+            className={`mt-4 p-3 rounded-lg text-center font-body ${
+              qrScanMessage.includes("✅") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+            }`}
+          >
+            {qrScanMessage}
+          </div>
+        )}
+      </div>
+
       {/* QR Scanner Modal */}
       {showQRScanner && selectedUserForScan && (
         <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-2 sm:p-4">
@@ -687,6 +646,17 @@ const AdminPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Logout Button at Bottom */}
+      <div className="flex justify-center mt-6 sm:mt-8 mb-4">
+        <button
+          onClick={handleLogout}
+          className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-6 py-3 rounded-full hover:opacity-90 transition-colors text-sm font-body shadow-lg"
+        >
+          <LogOut className="w-4 h-4" />
+          Logout
+        </button>
+      </div>
 
     </div>
   );
