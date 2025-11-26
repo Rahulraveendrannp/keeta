@@ -53,7 +53,7 @@ router.post('/register', validatePhoneNumber, asyncHandler(async (req, res, next
   
   if (user && user.lastOtpRequest) {
     const timeSinceLastRequest = Date.now() - user.lastOtpRequest.getTime();
-    const cooldownPeriod = 2 * 60 * 1000; // 2 minutes
+    const cooldownPeriod = 60 * 1000; // 60 seconds
     
     if (timeSinceLastRequest < cooldownPeriod) {
       return next(new AppError(`Please wait ${Math.ceil((cooldownPeriod - timeSinceLastRequest) / 1000)} seconds before requesting another OTP`, 429));
@@ -241,7 +241,7 @@ router.post('/resend-otp', validatePhoneNumber, asyncHandler(async (req, res, ne
   // Check cooldown period
   if (user.lastOtpRequest) {
     const timeSinceLastRequest = Date.now() - user.lastOtpRequest.getTime();
-    const cooldownPeriod = 2 * 60 * 1000; // 2 minutes
+    const cooldownPeriod = 60 * 1000; // 60 seconds
     
     if (timeSinceLastRequest < cooldownPeriod) {
       return next(new AppError(`Please wait ${Math.ceil((cooldownPeriod - timeSinceLastRequest) / 1000)} seconds before requesting another OTP`, 429));

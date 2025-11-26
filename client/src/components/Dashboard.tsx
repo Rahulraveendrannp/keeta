@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { CheckCircle, Gift, LogOut, QrCode, X } from "lucide-react";
+import { CheckCircle, Gift, LogOut, X } from "lucide-react";
 import { ScavengerAPI } from "../api";
 import SimpleQRScanner from "./SimpleQRScanner";
 import QRCodeLib from "qrcode";
@@ -20,22 +20,22 @@ interface CardInfo {
 const GAME_TASKS: CardInfo[] = [
   {
     id: 1,
-    title: "🎯 Pose Battle",
-    description: "Strike poses, get AI scored, win personalized avatar prints.",
+    title: "Pose Battle",
+    description: "Match the coach's pose and earn your score.",
     qrCode: "KEETO_GAME1_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Lunchbox.svg",
   },
   {
     id: 2,
-    title: "🏍️ Rider Dash",
-    description: "Race through streets, collect bags, dodge obstacles for vouchers.",
+    title: "Dribble Dash",
+    description: "Keep the momentum and collect items on the run.",
     qrCode: "KEETO_GAME2_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Runner.svg",
   },
   {
     id: 3,
-    title: "⚽ Ball Catch",
-    description: "Catch falling footballs fast, earn bigger voucher rewards.",
+    title: "Reflex Ball Catch",
+    description: "Catch the falling balls and test your reflex.",
     qrCode: "KEETO_GAME3_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/Talabeat.svg",
   },
@@ -56,9 +56,6 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const completedSet = useMemo(() => new Set(completedCards), [completedCards]);
-  const totalCompleted = completedCards.length;
-  const totalCards = GAME_TASKS.length;
-  const totalClaimed = Object.values(gameClaims).filter(claimed => claimed).length;
 
   useEffect(() => {
     const initialise = async () => {
@@ -277,41 +274,19 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFE41F] p-4 font-body">
-      <div className="max-w-5xl mx-auto">
-        <header className="bg-white rounded-xl shadow-lg p-5 sm:p-6 mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-heading text-[#11CC9A]">Welcome {userName?.split('')[0]?.toUpperCase()+userName?.slice(1)}!</h1>
-              <p className="text-base text-gray-600 mt-1">
-                Complete each station by scanning the QR codes. 
-              </p>
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600 mb-2">
-                  <span>{totalCompleted}/{totalCards} games completed</span>
-                  <span>{totalClaimed}/{totalCards} claimed</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden relative">
-                  {/* Completed but not claimed - lighter green */}
-                  {totalCompleted > 0 && (
-                    <div 
-                      className="bg-[#7DD3C0] h-full transition-all duration-300 rounded-full absolute left-0 top-0"
-                      style={{ width: `${(totalCompleted / totalCards) * 100}%` }}
-                      title={`${totalCompleted} out of ${totalCards} games completed`}
-                    />
-                  )}
-                  {/* Claimed - darker green overlay */}
-                  {totalClaimed > 0 && (
-                    <div 
-                      className="bg-[#11CC9A] h-full transition-all duration-300 rounded-full absolute left-0 top-0"
-                      style={{ width: `${(totalClaimed / totalCards) * 100}%` }}
-                      title={`${totalClaimed} out of ${totalCards} games claimed`}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+    <div className="relative min-h-screen bg-[#11CC9A] font-body overflow-hidden flex flex-col items-center">
+      {/* Yellow section with curved bottom - using same method as login/OTP pages */}
+      <div className="absolute top-0 h-[90%] w-[200vw] bg-[#FFE41F] rounded-b-full"></div>
+      
+      <div className="max-w-md mx-auto px-4 pt-8 pb-32 relative z-10">
+        {/* Welcome header - centered */}
+        <header className="text-center mb-6">
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#11CC9A] mb-2">
+            Welcome {userName?.split('')[0]?.toUpperCase()+userName?.slice(1)}
+          </h1>
+          <p className="text-sm text-gray-900 w-[80%] mx-auto">
+            Finish the challenge and scan the prize QR code to collect your reward.
+          </p>
         </header>
 
         {errorMessage && (
@@ -320,48 +295,44 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           </div>
         )}
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-2 sm:px-4">
+        {/* Challenge cards - vertical list */}
+        <section className="space-y-4 mb-6">
           {GAME_TASKS.map((task) => {
             const isCompleted = completedSet.has(task.id);
             return (
               <article
                 key={task.id}
-                className={`bg-white rounded-xl shadow-lg p-5 flex flex-col justify-between transition transform hover:-translate-y-1 hover:shadow-2xl ${
+                className={`bg-white rounded-xl shadow-lg p-5 relative ${
                   isCompleted ? "ring-2 ring-[#11CC9A]" : ""
                 }`}
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="text-4xl">
-                      {task.title.split(' ')[0]}
-                    </div>
-                    {isCompleted && (
-                      <div className="ml-auto">
-                        <CheckCircle className="w-6 h-6 text-[#11CC9A]" />
-                      </div>
-                    )}
+                {isCompleted && (
+                  <div className="absolute top-4 right-4">
+                    <CheckCircle className="w-6 h-6 text-[#11CC9A]" />
                   </div>
-                  <h2 className="text-lg font-heading text-gray-900 mb-2">
-                    {task.title.split(' ').slice(1).join(' ')}
+                )}
+                <div className="mb-4">
+                  <h2 className="text-lg font-heading text-black mb-1">
+                    {task.title}
                   </h2>
-                  <p className="text-xs text-gray-600 leading-relaxed">
+                  <p className="text-sm text-black ">
                     {task.description}
                   </p>
                 </div>
-                <div className="mt-6 space-y-2">
+                <div className="flex justify-end">
                   {!isCompleted ? (
                     <button
                       onClick={() => handleOpenScanner(task)}
                       disabled={isSubmitting}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90 disabled:opacity-60"
+                      className="inline-flex items-center justify-center gap-2 px-10 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90 disabled:opacity-60"
                     >
-                      <QrCode className="w-4 h-4" />
+                      <img src="/game/qr-icon.svg" alt="QR" className="w-4 h-4" />
                       Scan
                     </button>
                   ) : gameClaims[task.id] ? (
                     <button
                       disabled
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-body text-sm bg-gray-400 text-white cursor-not-allowed"
+                      className="inline-flex items-center justify-center gap-2 px-10 py-2.5 rounded-full font-body text-sm bg-gray-400 text-white cursor-not-allowed"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Claimed
@@ -369,7 +340,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
                   ) : (
                     <button
                       onClick={() => handleShowQRCode(task.id)}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90"
+                      className="inline-flex items-center justify-center gap-2 px-10 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90"
                     >
                       <Gift className="w-4 h-4" />
                       Claim
@@ -381,13 +352,13 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           })}
         </section>
 
-        {/* Logout button at bottom */}
-        <footer className="mt-6 sm:mt-8 flex justify-center">
+        {/* Logout button at bottom - centered over wave */}
+        <footer className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-20">
           <button
             onClick={onLogout}
-            className="inline-flex items-center justify-center gap-2 bg-[#11CC9A] text-white px-6 py-2 rounded-full hover:opacity-90 transition-colors text-sm font-body"
+            className="inline-flex items-center justify-center gap-2 bg-[#11CC9A] text-white px-8 py-3 rounded-full hover:opacity-90 transition-colors text-base font-body shadow-lg"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-5 h-5" />
             Logout
           </button>
         </footer>
