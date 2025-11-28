@@ -54,8 +54,9 @@ router.post('/find-the-card/:cardId/complete', authMiddleware, async (req, res) 
   try {
     const { phoneNumber } = req.user;
     const { cardId } = req.params;
+    const { scannedQRCode } = req.body;
     
-    console.log('🎴 Find the Card API: Completing card:', cardId, 'for phone:', phoneNumber);
+    console.log('🎴 Find the Card API: Completing card:', cardId, 'for phone:', phoneNumber, 'QR Code:', scannedQRCode);
     
     const cardIdNum = parseInt(cardId);
     if (isNaN(cardIdNum) || cardIdNum < 1 || cardIdNum > 4) {
@@ -72,6 +73,29 @@ router.post('/find-the-card/:cardId/complete', authMiddleware, async (req, res) 
         success: false,
         error: 'User not found'
       });
+    }
+    
+    // Update game tier if it's a tier-based game (games 1-3) and QR code is provided
+    if (cardIdNum <= 3 && scannedQRCode) {
+      // Explicitly check for TIER1 or TIER2 in the QR code
+      let tier = null;
+      if (scannedQRCode.includes('TIER1')) {
+        tier = 1;
+      } else if (scannedQRCode.includes('TIER2')) {
+        tier = 2;
+      }
+      
+      if (tier !== null) {
+        // Ensure gameTiers object exists
+        if (!user.gameTiers) {
+          user.gameTiers = {};
+        }
+        user.gameTiers[`game${cardIdNum}`] = tier;
+        await user.save();
+        console.log(`✅ Updated game ${cardIdNum} tier to ${tier} based on QR code: ${scannedQRCode}`);
+      } else {
+        console.warn(`⚠️ Could not determine tier from QR code: ${scannedQRCode}`);
+      }
     }
     
     let progress = await UserProgress.getOrCreateProgress(phoneNumber, user._id);

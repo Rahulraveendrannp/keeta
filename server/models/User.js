@@ -56,14 +56,31 @@ const userSchema = new mongoose.Schema({
     },
     lastPlayedAt: Date
   },
-  isClaimed: {
-    type: Boolean,
-    default: false
-  },
+  // Removed global isClaimed - now per-game tracking
   voucherCode: {
     type: String,
     required: true,
     unique: true
+  },
+  // QR codes for each game (generated at login)
+  gameQRCodes: {
+    game1: { type: String, unique: true, sparse: true },
+    game2: { type: String, unique: true, sparse: true },
+    game3: { type: String, unique: true, sparse: true },
+    game4: { type: String, unique: true, sparse: true }
+  },
+  // Track which tier was completed for games 1-3 (1 or 2) based on station QR code scanned
+  gameTiers: {
+    game1: { type: Number, enum: [1, 2], default: null },
+    game2: { type: Number, enum: [1, 2], default: null },
+    game3: { type: Number, enum: [1, 2], default: null }
+  },
+  // Per-game claim status
+  gameClaims: {
+    game1: { type: Boolean, default: false },
+    game2: { type: Boolean, default: false },
+    game3: { type: Boolean, default: false },
+    game4: { type: Boolean, default: false }
   },
   preferences: {
     notifications: {
@@ -106,9 +123,11 @@ userSchema.index({ createdAt: -1 });
 userSchema.index({ lastQRScanAt: -1 }); // For sorting by recent QR scans
 userSchema.index({ 'gameStats.bestTime': 1 });
 userSchema.index({ voucherCode: 1 }, { unique: true });
-userSchema.index({ isClaimed: 1 }); // For filtering claimed users
+userSchema.index({ 'gameQRCodes.game1': 1 }, { unique: true, sparse: true });
+userSchema.index({ 'gameQRCodes.game2': 1 }, { unique: true, sparse: true });
+userSchema.index({ 'gameQRCodes.game3': 1 }, { unique: true, sparse: true });
+userSchema.index({ 'gameQRCodes.game4': 1 }, { unique: true, sparse: true });
 userSchema.index({ lastQRScanAt: -1, createdAt: -1 }); // Compound index for sorting
-userSchema.index({ phoneNumber: 1, isClaimed: 1 }); // Compound index for admin queries
 
 
 // Pre-save middleware to hash OTP only
@@ -254,6 +273,67 @@ userSchema.statics.generateUniqueVoucherCode = async function() {
     const fallbackCode = 'ERROR_' + Date.now().toString().slice(-6);
     console.log('🆘 Using error fallback voucher code:', fallbackCode);
     return fallbackCode;
+  }
+};
+
+// Static method to generate unique QR code for a specific game
+userSchema.statics.generateUniqueGameQRCode = async function(gameNumber) {
+  const generateQRCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = `KEETO_GAME${gameNumber}_`;
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  try {
+    let attempts = 0;
+    const maxAttempts = 20;
+    const fieldName = `gameQRCodes.game${gameNumber}`;
+
+    while (attempts < maxAttempts) {
+      const qrCode = generateQRCode();
+      
+      // Check if this QR code already exists for this game
+      const query = {};
+      query[fieldName] = qrCode;
+      const existingUser = await this.findOne(query);
+      
+      if (!existingUser) {
+        console.log(`✅ Generated unique QR code for game ${gameNumber}:`, qrCode);
+        return qrCode;
+      }
+      
+      attempts++;
+      console.log(`🔄 Attempt ${attempts}: QR code ${qrCode} already exists, trying again...`);
+    }
+    
+    // Fallback with timestamp
+    const fallbackCode = `KEETO_GAME${gameNumber}_TEMP_${Date.now().toString().slice(-8)}`;
+    console.log('⚠️ Using fallback QR code:', fallbackCode);
+    return fallbackCode;
+    
+  } catch (error) {
+    console.error('❌ Error in generateUniqueGameQRCode:', error);
+    const fallbackCode = `KEETO_GAME${gameNumber}_ERROR_${Date.now().toString().slice(-8)}`;
+    console.log('🆘 Using error fallback QR code:', fallbackCode);
+    return fallbackCode;
+  }
+};
+
+// Static method to generate all 4 game QR codes for a user
+userSchema.statics.generateAllGameQRCodes = async function() {
+  try {
+    const qrCodes = {};
+    for (let i = 1; i <= 4; i++) {
+      qrCodes[`game${i}`] = await this.generateUniqueGameQRCode(i);
+    }
+    console.log('✅ Generated all 4 game QR codes:', qrCodes);
+    return qrCodes;
+  } catch (error) {
+    console.error('❌ Error generating all game QR codes:', error);
+    throw error;
   }
 };
 

@@ -17,8 +17,8 @@ import RegistrationPage from "./components/RegistrationPage";
 import OTPPage from "./components/OTPPage";
 import Dashboard from "./components/Dashboard";
 import AdminPage from "./components/AdminPage";
+import AdminGame3QR from "./components/AdminGame3QR";
 import WelcomePage from "./components/WelcomePage";
-import ClaimPrize from "./components/ClaimPrize";
 
 // Context to share state across components
 const AppContext = React.createContext<{
@@ -139,6 +139,11 @@ const DashboardWrapper: React.FC = () => {
 const AdminPageWrapper: React.FC = () => {
   return <AdminPage />;
 };
+
+const AdminGame3QRWrapper: React.FC = () => {
+  return <AdminGame3QR />;
+};
+
 // Main App Component
 const AppContent: React.FC = () => {
   const { phoneNumber, gameSession } = React.useContext(AppContext);
@@ -191,16 +196,7 @@ const AppContent: React.FC = () => {
         }
       />
       <Route path="/admin" element={<AdminPageWrapper />} />
-      <Route
-        path="/claim"
-        element={
-          isAuthenticated ? (
-            <ClaimPrize />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
+      <Route path="/admin/game3-qr" element={<AdminGame3QRWrapper />} />
       <Route
         path="*"
         element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />}
@@ -267,7 +263,6 @@ const App: React.FC = () => {
           const response = await ScavengerAPI.getUserProgress();
           if (response.success) {
             setUserProgress(response.data);
-            console.log("User progress loaded:", response.data);
           } else {
             console.error("Failed to load user progress:", response.error);
           }

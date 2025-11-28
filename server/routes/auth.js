@@ -53,7 +53,7 @@ router.post('/register', validatePhoneNumber, asyncHandler(async (req, res, next
   
   if (user && user.lastOtpRequest) {
     const timeSinceLastRequest = Date.now() - user.lastOtpRequest.getTime();
-    const cooldownPeriod = 2 * 60 * 1000; // 2 minutes
+    const cooldownPeriod = 60 * 1000; // 60 seconds
     
     if (timeSinceLastRequest < cooldownPeriod) {
       return next(new AppError(`Please wait ${Math.ceil((cooldownPeriod - timeSinceLastRequest) / 1000)} seconds before requesting another OTP`, 429));
@@ -176,6 +176,23 @@ router.post('/verify-otp', validateOTP, asyncHandler(async (req, res, next) => {
   user.otpExpires = undefined;
   user.otpAttempts = 0;
   user.isVerified = true;
+
+  // Generate QR codes for games if not already generated
+  // Check if game1 exists
+  if (!user.gameQRCodes || !user.gameQRCodes.game1) {
+    console.log('🎫 Generating game QR codes for user:', user.phoneNumber);
+    try {
+      const qrCodes = await User.generateAllGameQRCodes();
+      user.gameQRCodes = qrCodes;
+      console.log('✅ Game QR codes generated:', qrCodes);
+    } catch (error) {
+      console.error('❌ Error generating game QR codes:', error);
+      // Continue without QR codes - they can be generated later
+    }
+  } else {
+    console.log('✅ User already has game QR codes');
+  }
+
   await user.save();
 
   // Generate session data
@@ -224,7 +241,7 @@ router.post('/resend-otp', validatePhoneNumber, asyncHandler(async (req, res, ne
   // Check cooldown period
   if (user.lastOtpRequest) {
     const timeSinceLastRequest = Date.now() - user.lastOtpRequest.getTime();
-    const cooldownPeriod = 2 * 60 * 1000; // 2 minutes
+    const cooldownPeriod = 60 * 1000; // 60 seconds
     
     if (timeSinceLastRequest < cooldownPeriod) {
       return next(new AppError(`Please wait ${Math.ceil((cooldownPeriod - timeSinceLastRequest) / 1000)} seconds before requesting another OTP`, 429));

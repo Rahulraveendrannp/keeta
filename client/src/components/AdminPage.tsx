@@ -4,15 +4,14 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  ToggleLeft,
-  ToggleRight,
   LogOut,
-  Gift,
-  BarChart3,
   CheckCircle,
+  QrCode,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { ScavengerAPI } from "../api";
 import AdminLogin from "./AdminLogin";
+import SimpleQRScanner from "./SimpleQRScanner";
 
 interface AdminStatistics {
   totalUsers: number;
@@ -31,31 +30,50 @@ interface AdminUser {
   _id: string;
   phoneNumber: string;
   voucherCode?: string;
-  isClaimed: boolean;
   cardsCompleted: number;
   totalCards: number;
   gameCompleted: boolean;
   createdAt?: string;
   lastQRScanAt?: string;
+  gameClaims?: {
+    game1: boolean;
+    game2: boolean;
+    game3: boolean;
+  };
+  gameQRCodes?: {
+    game1?: string;
+    game2?: string;
+    game3?: string;
+  };
+  gameTiers?: {
+    game1?: number;
+    game2?: number;
+    game3?: number;
+  };
+  profile?: {
+    name?: string;
+  };
 }
 
-const ITEMS_PER_PAGE = 25;
+const ITEMS_PER_PAGE = 12;
 
 const AdminPage: React.FC = () => {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
-  const [claimMessage, setClaimMessage] = useState("");
   const [usersList, setUsersList] = useState<AdminUser[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [statistics, setStatistics] = useState<AdminStatistics | null>(null);
-  const [showVoucherInput, setShowVoucherInput] = useState(false);
-  const [voucherInput, setVoucherInput] = useState("");
-  const [voucherError, setVoucherError] = useState("");
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [qrScanMessage, setQRScanMessage] = useState("");
+  const [selectedUserForScan, setSelectedUserForScan] = useState<AdminUser | null>(null);
+  const [userQRCodes, setUserQRCodes] = useState<string[]>([]);
+  const [loadingUserPhone, setLoadingUserPhone] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuthentication();
@@ -93,9 +111,8 @@ const AdminPage: React.FC = () => {
     localStorage.removeItem("adminAuthenticated");
     localStorage.removeItem("adminLoginTime");
     setIsAuthenticated(false);
-    setClaimMessage("✅ Logged out successfully");
-    setTimeout(() => setClaimMessage(""), 3000);
   };
+
 
   const loadUsers = async (page: number = 1, search: string = "") => {
     try {
@@ -142,46 +159,79 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const handleVoucherClaim = async () => {
-    try {
-      setVoucherError("");
-      if (!voucherInput.trim()) {
-        setVoucherError("❌ Please enter a voucher code");
-        return;
-      }
 
-      const response = await ScavengerAPI.markUserAsClaimed(voucherInput.trim().toUpperCase());
-      if (response.success) {
-        setClaimMessage("✅ Reward claimed successfully!");
-        setVoucherInput("");
-        setShowVoucherInput(false);
-        loadUsers(currentPage, searchTerm);
-        loadStatistics();
+
+  const handleOpenQRScannerForUser = async (user: AdminUser) => {
+    setSelectedUserForScan(user);
+    setQRScanMessage("");
+    setLoadingUserPhone(user.phoneNumber);
+    
+    try {
+      const response = await ScavengerAPI.getUserQRCodes(user.phoneNumber);
+      
+      if (response.success && response.data?.gameQRCodes) {
+        const qrCodes = response.data.gameQRCodes;
+        const qrCodeArray = [
+          qrCodes.game1,
+          qrCodes.game2,
+          qrCodes.game3,
+        ].filter(code => code);
+        
+        setUserQRCodes(qrCodeArray);
+        setShowQRScanner(true);
       } else {
-        setVoucherError(`❌ ${response.error || "Invalid voucher code or user not found"}`);
+        setQRScanMessage(`❌ Failed to load QR codes for ${user.profile?.name || user.phoneNumber}`);
       }
-    } catch (error) {
-      console.error("Error claiming reward:", error);
-      setVoucherError("❌ Error processing claim. Please try again.");
+    } catch {
+      setQRScanMessage(`❌ Error loading QR codes`);
+    } finally {
+      setLoadingUserPhone(null);
     }
   };
 
-  const handleToggleClaimStatus = async (userId: string) => {
+  const handleQRScan = async (qrData: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await ScavengerAPI.toggleClaimStatus(userId);
+      setQRScanMessage("");
+      
+      // Validate against the fetched QR codes
+      const isValid = userQRCodes.includes(qrData);
+      
+      if (!isValid) {
+        const userName = selectedUserForScan?.profile?.name || selectedUserForScan?.phoneNumber || "this user";
+        const errorMsg = `❌ This QR code doesn't belong to ${userName}`;
+        return { success: false, message: errorMsg };
+      }
+      
+      const response = await ScavengerAPI.scanQRCode(qrData);
+      
       if (response.success) {
-        setClaimMessage("✅ Claim status updated successfully!");
+        const gameNumber = response.data?.gameNumber || "unknown";
+        const userName = selectedUserForScan?.profile?.name || response.data?.phoneNumber || "User";
+        const successMsg = `✅ Game ${gameNumber} claimed for ${userName}!`;
+        setQRScanMessage(successMsg);
+        
+        setShowQRScanner(false);
+        setSelectedUserForScan(null);
+        setUserQRCodes([]);
         loadUsers(currentPage, searchTerm);
         loadStatistics();
+        
+        setTimeout(() => setQRScanMessage(""), 5000);
+        
+        return { success: true };
       } else {
-        setClaimMessage(`❌ ${response.error || "Failed to update claim status"}`);
+        const errorMsg = `❌ ${response.error || "Invalid QR code"}`;
+        return { success: false, message: errorMsg };
       }
-    } catch (error) {
-      console.error("Error toggling claim status:", error);
-      setClaimMessage("❌ Error updating claim status");
-    } finally {
-      setTimeout(() => setClaimMessage(""), 3000);
+    } catch {
+      return { success: false, message: "❌ Error processing QR code scan" };
     }
+  };
+
+  const handleCloseQRScanner = () => {
+    setShowQRScanner(false);
+    setSelectedUserForScan(null);
+    setUserQRCodes([]);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -213,134 +263,34 @@ const AdminPage: React.FC = () => {
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-heading text-[#11CC9A]">Find the Card Admin</h1>
-            <p className="text-sm text-gray-600">Monitor progress, manage claims, and view live statistics.</p>
+            <h1 className="text-2xl sm:text-3xl font-heading text-[#11CC9A]">Admin Dashboard</h1>
+            <p className="text-sm text-gray-600 mt-2">Monitor progress, manage claims, and view live statistics.</p>
           </div>
           <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-full hover:opacity-90 transition-colors text-sm font-body"
+            onClick={() => navigate("/admin/game3-qr")}
+            className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors text-sm font-body shadow-lg"
           >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
-        </div>
-
-        {claimMessage && (
-          <div
-            className={`mt-4 p-3 rounded-lg text-center font-body ${
-              claimMessage.includes("✅") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            }`}
-          >
-            {claimMessage}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
-            <div className="bg-[#11CC9A]/10 p-2 rounded-lg">
-              <Users className="w-6 h-6 text-[#11CC9A]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Users</p>
-              <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoading || isLoadingStats ? "..." : statistics?.totalUsers ?? totalUsers}
-              </p>
-            </div>
-          </div>
-          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
-            <div className="bg-[#11CC9A]/10 p-2 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-[#11CC9A]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Claimed</p>
-              <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoadingStats ? "..." : statistics?.totalClaimed ?? 0}
-              </p>
-            </div>
-          </div>
-          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
-            <div className="bg-[#11CC9A]/10 p-2 rounded-lg">
-              <BarChart3 className="w-6 h-6 text-[#11CC9A]" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Avg. Cards Completed</p>
-              <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoadingStats ? "..." : statistics?.overview.averageCardsCompleted ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-          <div className="bg-white rounded-xl shadow p-4">
-            <h3 className="text-lg font-heading text-gray-800 mb-3">Cards Completion Distribution</h3>
-            <div className="space-y-2">
-              {completionData.length === 0 && (
-                <p className="text-sm text-gray-500">No data available.</p>
-              )}
-              {completionData.map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between text-sm text-gray-700">
-                  <span>{label}</span>
-                  <span className="font-heading">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow p-4">
-            <h3 className="text-lg font-heading text-gray-800 mb-3">Overview</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm text-gray-700">
-              <div>
-                <p className="text-xs text-gray-500">Players Completed All</p>
-                <p className="text-lg font-heading">{statistics?.overview.playersCompletedAll ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Players With Progress</p>
-                <p className="text-lg font-heading">{statistics?.overview.playersWithProgress ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Recent Activity (24h)</p>
-                <p className="text-lg font-heading">{statistics?.overview.recentActivity ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Unclaimed Rewards</p>
-                <p className="text-lg font-heading">{statistics?.totalUnclaimed ?? 0}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6">
-          <button
-            onClick={() => setShowVoucherInput(true)}
-            className="inline-flex items-center justify-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors font-body"
-          >
-            <Gift className="w-4 h-4" />
-            Claim with Voucher
-          </button>
-          <button
-            onClick={() => {
-              loadUsers(currentPage, searchTerm);
-              loadStatistics();
-            }}
-            className="inline-flex items-center justify-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors font-body"
-          >
-            Refresh Data
+            <QrCode className="w-4 h-4" />
+            Game 3 QR Codes
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      {/* Players Table Section - Moved to top for mobile */}
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-4 sm:mb-6">
         <div className="p-6 border-b border-gray-200">
+          <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 className="text-xl font-heading text-gray-800">Players</h3>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            </div>
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#11CC9A] w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by phone number or voucher code..."
+                placeholder="Search by name or phone number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-transparent"
+                className="w-full pl-11 pr-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-[#11CC9A] transition-colors font-body"
               />
             </div>
           </div>
@@ -360,69 +310,183 @@ const AdminPage: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="bg-[#11CC9A]/5 border-b border-gray-200 text-xs text-gray-600 uppercase tracking-wider">
-                  <th className="text-left py-3 px-6">Phone Number</th>
-                  <th className="text-center py-3 px-6">Cards</th>
-                  <th className="text-center py-3 px-6">Completed</th>
-                  <th className="text-center py-3 px-6">Voucher Code</th>
-                  <th className="text-center py-3 px-6">Last Scan</th>
-                  <th className="text-center py-3 px-6">Claim Status</th>
+                  <th className="text-left py-3 px-4">Name</th>
+                  <th className="text-left py-3 px-4">Phone</th>
+                  <th className="text-center py-3 px-3">Cards</th>
+                  <th className="text-center py-3 px-3">Game 1</th>
+                  <th className="text-center py-3 px-3">Game 2</th>
+                  <th className="text-center py-3 px-3">Game 3</th>
+                  <th className="text-center py-3 px-4">Scan QR</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {usersList.map((user) => (
+                {usersList.map((user) => {
+                  const gameClaims = user.gameClaims || { game1: false, game2: false, game3: false };
+                  return (
                   <tr key={user._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-4 px-6 text-sm text-gray-900 font-body">
+                      <td className="py-3 px-4 text-sm text-gray-900 font-body">
+                        {user.profile?.name || "N/A"}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-700 font-mono">
                       {user.phoneNumber || "Unknown"}
                     </td>
-                    <td className="py-4 px-6 text-center text-sm text-gray-700">
+                      <td className="py-3 px-3 text-center text-sm text-gray-700">
                       {user.cardsCompleted}/{user.totalCards}
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      {user.gameCompleted ? (
-                        <span className="text-green-600 font-body">Yes</span>
-                      ) : (
-                        <span className="text-gray-500">No</span>
-                      )}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const tier = user.gameTiers?.game1;
+                            const isClaimed = gameClaims.game1;
+                            const isGameCompleted = user.cardsCompleted >= 1;
+                            
+                            // Only show tier if it's 1 or 2 (not 0, null, or undefined)
+                            // Convert to number to handle string "1" or number 1
+                            const tierNum = tier != null ? Number(tier) : null;
+                            const hasValidTier = tierNum === 1 || tierNum === 2;
+                            
+                            if (isClaimed) {
+                              // Show T1 or T2 inside green circle if claimed and has valid tier
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#11CC9A] text-white font-bold text-sm"
+                                  title={hasValidTier ? `Game 1 Claimed - Tier ${tierNum} Voucher` : "Game 1 Claimed"}
+                                >
+                                  {hasValidTier ? `T${tierNum}` : "✓"}
+                                </div>
+                              );
+                            } else if (hasValidTier) {
+                              // Show tier if available, regardless of completion status
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-700 font-bold text-sm border-2 border-gray-400"
+                                  title={isGameCompleted ? `Game 1 Completed - Tier ${tierNum} Eligible (Not Claimed)` : `Game 1 - Tier ${tierNum} (In Progress)`}
+                                >
+                                  T{tierNum}
+                                </div>
+                              );
+                            } else {
+                              // Show empty circle if not completed
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-400"
+                                  title="Game 1 Not Completed"
+                                >
+                                  ○
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      {user.voucherCode ? (
-                        <span className="bg-[#11CC9A]/10 text-[#11CC9A] px-2 py-1 rounded font-mono text-sm">
-                          {user.voucherCode}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const tier = user.gameTiers?.game2;
+                            const isClaimed = gameClaims.game2;
+                            const isGameCompleted = user.cardsCompleted >= 2;
+                            
+                            // Only show tier if it's 1 or 2 (not 0, null, or undefined)
+                            // Convert to number to handle string "1" or number 1
+                            const tierNum = tier != null ? Number(tier) : null;
+                            const hasValidTier = tierNum === 1 || tierNum === 2;
+                            
+                            if (isClaimed) {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#11CC9A] text-white font-bold text-sm"
+                                  title={hasValidTier ? `Game 2 Claimed - Tier ${tierNum} Voucher` : "Game 2 Claimed"}
+                                >
+                                  {hasValidTier ? `T${tierNum}` : "✓"}
+                                </div>
+                              );
+                            } else if (hasValidTier) {
+                              // Show tier if available, regardless of completion status
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-700 font-bold text-sm border-2 border-gray-400"
+                                  title={isGameCompleted ? `Game 2 Completed - Tier ${tierNum} Eligible (Not Claimed)` : `Game 2 - Tier ${tierNum} (In Progress)`}
+                                >
+                                  T{tierNum}
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-400"
+                                  title="Game 2 Not Completed"
+                                >
+                                  ○
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                     </td>
-                    <td className="py-4 px-6 text-center text-sm text-gray-700">
-                      {user.lastQRScanAt
-                        ? `${new Date(user.lastQRScanAt).toLocaleDateString()} ${new Date(user.lastQRScanAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}`
-                        : "Never"}
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const tier = user.gameTiers?.game3;
+                            const isClaimed = gameClaims.game3;
+                            const isGameCompleted = user.cardsCompleted >= 3;
+                            
+                            // Only show tier if it's 1 or 2 (not 0, null, or undefined)
+                            // Convert to number to handle string "1" or number 1
+                            const tierNum = tier != null ? Number(tier) : null;
+                            const hasValidTier = tierNum === 1 || tierNum === 2;
+                            
+                            if (isClaimed) {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#11CC9A] text-white font-bold text-sm"
+                                  title={hasValidTier ? `Game 3 Claimed - Tier ${tierNum} Voucher` : "Game 3 Claimed"}
+                                >
+                                  {hasValidTier ? `T${tierNum}` : "✓"}
+                                </div>
+                              );
+                            } else if (hasValidTier) {
+                              // Show tier if available, regardless of completion status
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-700 font-bold text-sm border-2 border-gray-400"
+                                  title={isGameCompleted ? `Game 3 Completed - Tier ${tierNum} Eligible (Not Claimed)` : `Game 3 - Tier ${tierNum} (In Progress)`}
+                                >
+                                  T{tierNum}
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-400"
+                                  title="Game 3 Not Completed"
+                                >
+                                  ○
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                     </td>
-                    <td className="py-4 px-6 text-center">
-                      <button
-                        onClick={() => handleToggleClaimStatus(user._id)}
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm transition-colors ${
-                          user.isClaimed
-                            ? "bg-[#11CC9A]/10 text-[#11CC9A] hover:bg-[#11CC9A]/20"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        {user.isClaimed ? (
-                          <>
-                            <ToggleRight className="w-4 h-4" /> Claimed
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => handleOpenQRScannerForUser(user)}
+                          disabled={loadingUserPhone !== null || (gameClaims.game1 && gameClaims.game2 && gameClaims.game3)}
+                          className="inline-flex items-center justify-center bg-[#11CC9A] text-white hover:opacity-90 px-3 py-2 rounded-lg transition-colors text-xs font-body disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={(gameClaims.game1 && gameClaims.game2 && gameClaims.game3) ? "All games claimed - no QR codes to scan" : "Scan user's QR code"}
+                        >
+                          {loadingUserPhone === user.phoneNumber ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              Loading...
                           </>
                         ) : (
-                          <>
-                            <ToggleLeft className="w-4 h-4" /> Not Claimed
-                          </>
+                          "Scan QR"
                         )}
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -454,48 +518,146 @@ const AdminPage: React.FC = () => {
         )}
       </div>
 
-      {showVoucherInput && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-xl font-heading mb-2">Claim Reward by Voucher</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter the voucher code shown on the player's device to mark their reward as claimed.
-            </p>
-            <input
-              type="text"
-              value={voucherInput}
-              onChange={(e) => {
-                setVoucherInput(e.target.value.toUpperCase());
-                setVoucherError("");
-              }}
-              placeholder="Enter 4-character voucher code"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#11CC9A] focus:border-transparent uppercase"
-              maxLength={6}
-            />
-            {voucherError && (
-              <div className="mt-2 text-sm text-red-600">{voucherError}</div>
-            )}
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={handleVoucherClaim}
-                className="flex-1 bg-[#11CC9A] text-white py-2 rounded-lg hover:opacity-90 transition-colors font-body"
-              >
-                Claim Reward
-              </button>
-              <button
-                onClick={() => {
-                  setShowVoucherInput(false);
-                  setVoucherInput("");
-                  setVoucherError("");
-                }}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors font-body"
-              >
-                Cancel
-              </button>
+      {/* Statistics Section - Simplified */}
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+        <h3 className="text-xl font-heading text-gray-800 mb-4">Statistics</h3>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
+            <div className="bg-[#11CC9A]/10 p-3 rounded-lg">
+              <Users className="w-6 h-6 text-[#11CC9A]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Total Users</p>
+              <p className="text-2xl font-heading text-[#11CC9A]">
+                {isLoading || isLoadingStats ? "..." : statistics?.totalUsers ?? totalUsers}
+              </p>
+            </div>
+          </div>
+          <div className="bg-[#11CC9A]/5 rounded-xl p-4 flex items-center gap-3">
+            <div className="bg-[#11CC9A]/10 p-3 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-[#11CC9A]" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Total Claimed</p>
+              <p className="text-2xl font-heading text-[#11CC9A]">
+                {isLoadingStats ? "..." : statistics?.totalClaimed ?? 0}
+              </p>
             </div>
           </div>
         </div>
+
+        <div className="bg-gray-50 rounded-xl p-4">
+          <h4 className="text-lg font-heading text-gray-800 mb-4">Card Completion Distribution</h4>
+          <div className="space-y-3">
+            {completionData.length === 0 ? (
+              <p className="text-sm text-gray-500">No data available.</p>
+            ) : (
+              completionData.map(({ label, value }) => {
+                // Filter to show only 0, 1, 2, 3 cards (remove 4 since we only have 3 games)
+                const cardCount = parseInt(label.split('/')[0]);
+                if (cardCount > 3) return null;
+                
+                return (
+                  <div key={label} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700 font-body">
+                      {cardCount} {cardCount === 1 ? 'Card' : 'Cards'} Completed
+                    </span>
+                    <span className="text-lg font-heading text-[#11CC9A]">{value}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {qrScanMessage && (
+          <div
+            className={`mt-4 p-3 rounded-lg text-center font-body ${
+              qrScanMessage.includes("✅") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+            }`}
+          >
+            {qrScanMessage}
+          </div>
+        )}
+      </div>
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && selectedUserForScan && (
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-[#1A1A1A] text-white rounded-2xl shadow-2xl w-full max-w-xl p-4 sm:p-6 relative max-h-[95vh] overflow-y-auto">
+            <button
+              onClick={handleCloseQRScanner}
+              className="absolute top-4 right-4 text-gray-300 hover:text-white text-2xl"
+            >
+              ✕
+            </button>
+
+            <h3 className="text-2xl font-heading mb-2">
+              Scan QR Code for {selectedUserForScan.profile?.name || "User"}
+            </h3>
+            <p className="text-sm text-gray-300 mb-2">
+              Phone: <span className="font-mono text-[#11CC9A]">{selectedUserForScan.phoneNumber}</span>
+            </p>
+            <p className="text-sm text-gray-400 mb-2">
+              Validating against {userQRCodes.length} QR codes for this user
+            </p>
+            <p className="text-sm text-gray-300 mb-4">
+              Ask the user to show their game QR code, then hold it inside the frame to scan.
+            </p>
+
+            {userQRCodes.length > 0 ? (
+              <>
+                <div className="bg-[#11CC9A]/10 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-gray-300 mb-2">
+                    📱 Ready to scan {userQRCodes.length} QR codes for this user
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {userQRCodes.map((code, index) => (
+                      <button
+                        key={index}
+                        onClick={async () => {
+                          await handleQRScan(code);
+                        }}
+                        className="text-xs font-mono text-[#11CC9A] bg-black/20 rounded px-2 py-1 hover:bg-black/40 transition-colors text-left"
+                        title="Click to test claiming this game"
+                      >
+                        Game {index + 1}: {code.substring(0, 12)}...
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    💡 Tip: Click a game code above to test, or scan the QR code from user's device
+                  </p>
+                </div>
+                <SimpleQRScanner
+                  title=""
+                  expectedQRCode=""
+                  onScan={handleQRScan}
+                  onClose={handleCloseQRScanner}
+                />
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#11CC9A] mx-auto mb-4"></div>
+                <p className="text-gray-400">Loading QR codes...</p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
+
+      {/* Logout Button at Bottom */}
+      <div className="flex justify-center mt-6 sm:mt-8 mb-4">
+        <button
+          onClick={handleLogout}
+          className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-6 py-3 rounded-full hover:opacity-90 transition-colors text-sm font-body shadow-lg"
+        >
+          <LogOut className="w-4 h-4" />
+          Logout
+        </button>
+      </div>
+
     </div>
   );
 };
