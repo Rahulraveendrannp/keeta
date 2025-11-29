@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Users,
   Search,
@@ -249,10 +249,11 @@ const AdminPage: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, isAuthenticated]);
 
-  const completionData = useMemo(() => {
-    if (!statistics) return [];
-    return Object.entries(statistics.completionBuckets || {}).map(([label, value]) => ({ label, value }));
-  }, [statistics]);
+  // Card Completion Distribution - Commented Out
+  // const completionData = useMemo(() => {
+  //   if (!statistics) return [];
+  //   return Object.entries(statistics.completionBuckets || {}).map(([label, value]) => ({ label, value }));
+  // }, [statistics]);
 
   if (!isAuthenticated) {
     return <AdminLogin onLogin={handleLogin} />;
@@ -275,6 +276,19 @@ const AdminPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* QR Scan Message - Moved to top for better visibility */}
+      {qrScanMessage && (
+        <div
+          className={`mb-4 sm:mb-6 p-4 rounded-xl text-center font-body shadow-lg ${
+            qrScanMessage.includes("✅") 
+              ? "bg-green-100 text-green-800 border-2 border-green-300" 
+              : "bg-red-100 text-red-800 border-2 border-red-300"
+          }`}
+        >
+          <p className="text-lg font-bold">{qrScanMessage}</p>
+        </div>
+      )}
 
       {/* Players Table Section - Moved to top for mobile */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-4 sm:mb-6">
@@ -312,7 +326,7 @@ const AdminPage: React.FC = () => {
                 <tr className="bg-[#11CC9A]/5 border-b border-gray-200 text-xs text-gray-600 uppercase tracking-wider">
                   <th className="text-left py-3 px-4">Name</th>
                   <th className="text-left py-3 px-4">Phone</th>
-                  <th className="text-center py-3 px-3">Cards</th>
+                  {/* <th className="text-center py-3 px-3">Cards</th> */}
                   <th className="text-center py-3 px-3">Game 1</th>
                   <th className="text-center py-3 px-3">Game 2</th>
                   <th className="text-center py-3 px-3">Game 3</th>
@@ -330,9 +344,9 @@ const AdminPage: React.FC = () => {
                       <td className="py-3 px-4 text-sm text-gray-700 font-mono">
                       {user.phoneNumber || "Unknown"}
                     </td>
-                      <td className="py-3 px-3 text-center text-sm text-gray-700">
+                      {/* <td className="py-3 px-3 text-center text-sm text-gray-700">
                       {user.cardsCompleted}/{user.totalCards}
-                    </td>
+                    </td> */}
                       <td className="py-3 px-3 text-center">
                         <div className="flex items-center justify-center">
                           {(() => {
@@ -547,7 +561,8 @@ const AdminPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-gray-50 rounded-xl p-4">
+        {/* Card Completion Distribution Section - Commented Out */}
+        {/* <div className="bg-gray-50 rounded-xl p-4">
           <h4 className="text-lg font-heading text-gray-800 mb-4">Card Completion Distribution</h4>
           <div className="space-y-3">
             {completionData.length === 0 ? (
@@ -569,17 +584,7 @@ const AdminPage: React.FC = () => {
               })
             )}
           </div>
-        </div>
-
-        {qrScanMessage && (
-          <div
-            className={`mt-4 p-3 rounded-lg text-center font-body ${
-              qrScanMessage.includes("✅") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            }`}
-          >
-            {qrScanMessage}
-          </div>
-        )}
+        </div> */}
       </div>
 
       {/* QR Scanner Modal */}
