@@ -18,6 +18,7 @@ import OTPPage from "./components/OTPPage";
 import Dashboard from "./components/Dashboard";
 import AdminPage from "./components/AdminPage";
 import AdminGame3QR from "./components/AdminGame3QR";
+import AdminGame4QR from "./components/AdminGame4QR";
 import WelcomePage from "./components/WelcomePage";
 
 // Context to share state across components
@@ -144,6 +145,10 @@ const AdminGame3QRWrapper: React.FC = () => {
   return <AdminGame3QR />;
 };
 
+const AdminGame4QRWrapper: React.FC = () => {
+  return <AdminGame4QR />;
+};
+
 // Main App Component
 const AppContent: React.FC = () => {
   const { phoneNumber, gameSession } = React.useContext(AppContext);
@@ -197,6 +202,7 @@ const AppContent: React.FC = () => {
       />
       <Route path="/admin" element={<AdminPageWrapper />} />
       <Route path="/admin/game3-qr" element={<AdminGame3QRWrapper />} />
+      <Route path="/admin/game4-qr" element={<AdminGame4QRWrapper />} />
       <Route
         path="*"
         element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />}

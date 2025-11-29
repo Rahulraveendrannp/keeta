@@ -134,7 +134,7 @@ const OTPPage: React.FC<OTPPageProps> = ({
 
         {/* Verify OTP badge */}
         <img
-          src="/game/Group 382.svg"
+          src="/game/otp.svg"
           alt="Verify OTP"
           className="w-[80%] max-w-[320px] mt-[15%]"
         />

@@ -39,16 +39,19 @@ interface AdminUser {
     game1: boolean;
     game2: boolean;
     game3: boolean;
+    game4: boolean;
   };
   gameQRCodes?: {
     game1?: string;
     game2?: string;
     game3?: string;
+    game4?: string;
   };
   gameTiers?: {
     game1?: number;
     game2?: number;
     game3?: number;
+    game4?: number;
   };
   profile?: {
     name?: string;
@@ -175,6 +178,7 @@ const AdminPage: React.FC = () => {
           qrCodes.game1,
           qrCodes.game2,
           qrCodes.game3,
+          qrCodes.game4,
         ].filter(code => code);
         
         setUserQRCodes(qrCodeArray);
@@ -267,13 +271,22 @@ const AdminPage: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-heading text-[#11CC9A]">Admin Dashboard</h1>
             <p className="text-sm text-gray-600 mt-2">Monitor progress, manage claims, and view live statistics.</p>
           </div>
-          <button
-            onClick={() => navigate("/admin/game3-qr")}
-            className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors text-sm font-body shadow-lg"
-          >
-            <QrCode className="w-4 h-4" />
-            Game 3 QR Codes
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate("/admin/game3-qr")}
+              className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors text-sm font-body shadow-lg"
+            >
+              <QrCode className="w-4 h-4" />
+              Game 3 QR Codes
+            </button>
+            <button
+              onClick={() => navigate("/admin/game4-qr")}
+              className="inline-flex items-center gap-2 bg-[#11CC9A] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors text-sm font-body shadow-lg"
+            >
+              <QrCode className="w-4 h-4" />
+              Game 4 QR Code
+            </button>
+          </div>
         </div>
       </div>
 
@@ -330,12 +343,13 @@ const AdminPage: React.FC = () => {
                   <th className="text-center py-3 px-3">Game 1</th>
                   <th className="text-center py-3 px-3">Game 2</th>
                   <th className="text-center py-3 px-3">Game 3</th>
+                  <th className="text-center py-3 px-3">Game 4</th>
                   <th className="text-center py-3 px-4">Scan QR</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {usersList.map((user) => {
-                  const gameClaims = user.gameClaims || { game1: false, game2: false, game3: false };
+                  const gameClaims = user.gameClaims || { game1: false, game2: false, game3: false, game4: false };
                   return (
                   <tr key={user._id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4 text-sm text-gray-900 font-body">
@@ -481,12 +495,49 @@ const AdminPage: React.FC = () => {
                           })()}
                         </div>
                     </td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center">
+                          {(() => {
+                            const isClaimed = gameClaims.game4;
+                            const isGameCompleted = user.cardsCompleted >= 4;
+                            
+                            if (isClaimed) {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#11CC9A] text-white font-bold text-sm"
+                                  title="Game 4 Claimed"
+                                >
+                                  ✓
+                                </div>
+                              );
+                            } else if (isGameCompleted) {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-700 font-bold text-sm border-2 border-gray-400"
+                                  title="Game 4 Completed - Eligible (Not Claimed)"
+                                >
+                                  ○
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div
+                                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-400"
+                                  title="Game 4 Not Completed"
+                                >
+                                  ○
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
+                    </td>
                       <td className="py-3 px-4 text-center">
                         <button
                           onClick={() => handleOpenQRScannerForUser(user)}
-                          disabled={loadingUserPhone !== null || (gameClaims.game1 && gameClaims.game2 && gameClaims.game3)}
+                          disabled={loadingUserPhone !== null || (gameClaims.game1 && gameClaims.game2 && gameClaims.game3 && gameClaims.game4)}
                           className="inline-flex items-center justify-center bg-[#11CC9A] text-white hover:opacity-90 px-3 py-2 rounded-lg transition-colors text-xs font-body disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={(gameClaims.game1 && gameClaims.game2 && gameClaims.game3) ? "All games claimed - no QR codes to scan" : "Scan user's QR code"}
+                          title={(gameClaims.game1 && gameClaims.game2 && gameClaims.game3 && gameClaims.game4) ? "All games claimed - no QR codes to scan" : "Scan user's QR code"}
                         >
                           {loadingUserPhone === user.phoneNumber ? (
                             <>

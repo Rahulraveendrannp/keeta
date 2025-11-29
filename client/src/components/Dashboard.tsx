@@ -21,23 +21,30 @@ const GAME_TASKS: CardInfo[] = [
   {
     id: 1,
     title: "Pose Battle",
-    description: "Match the coach's pose and earn your score.",
+    description: "Mimic football celebration poses accurately for points",
     qrCode: "KEETO_GAME1_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
-    icon: "/Lunchbox.svg",
+    icon: "/game/dash-icon1.svg",
   },
   {
     id: 2,
-    title: "Dribble Dash",
-    description: "Keep the momentum and collect items on the run.",
+    title: "Delivery Dash",
+    description: "Swipe left/right to dodge, collect items. Endless-runner style game",
     qrCode: "KEETO_GAME2_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
-    icon: "/Runner.svg",
+    icon: "/game/dash-icon2.svg",
   },
   {
     id: 3,
-    title: "Reflex Ball Catch",
-    description: "Catch the falling balls and test your reflex.",
+    title: "Reflex Catch",
+    description: "Catch falling footballs. Speed and reflexes matter.",
     qrCode: "KEETO_GAME3_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
-    icon: "/Talabeat.svg",
+    icon: "/game/dash-icon3.svg",
+  },
+  {
+    id: 4,
+    title: "Fan Persona Generator",
+    description: "Get an AI-Generated player card.",
+    qrCode: "KEETO_GAME4", // Game 4 only needs one QR code
+    icon: "/game/dash-icon4.svg",
   },
 ];
 
@@ -87,6 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             1: claims.game1 || false,
             2: claims.game2 || false,
             3: claims.game3 || false,
+            4: claims.game4 || false,
           });
         }
 
@@ -100,6 +108,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             1: tiers.game1 || 0,
             2: tiers.game2 || 0,
             3: tiers.game3 || 0,
+            4: tiers.game4 || 0,
           });
         }
       } catch {
@@ -127,11 +136,16 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
     }
 
     // Validate QR code on frontend before sending to backend
-    // All games (1-3) accept either TIER1 or TIER2
-    const validQRCodes = [
-      `KEETO_GAME${selectedCard.id}_TIER1`,
-      `KEETO_GAME${selectedCard.id}_TIER2`
-    ];
+    // Games 1-3 accept either TIER1 or TIER2, Game 4 only accepts KEETO_GAME4
+    let validQRCodes: string[];
+    if (selectedCard.id === 4) {
+      validQRCodes = ["KEETO_GAME4"];
+    } else {
+      validQRCodes = [
+        `KEETO_GAME${selectedCard.id}_TIER1`,
+        `KEETO_GAME${selectedCard.id}_TIER2`
+      ];
+    }
 
     // Check if scanned QR code matches any valid code
     if (!validQRCodes.includes(scannedQRCode)) {
@@ -162,6 +176,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
             1: tiers.game1 || 0,
             2: tiers.game2 || 0,
             3: tiers.game3 || 0,
+            4: tiers.game4 || 0,
           });
         }
         
@@ -202,6 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           1: tiers.game1 || 0,
           2: tiers.game2 || 0,
           3: tiers.game3 || 0,
+          4: tiers.game4 || 0,
         });
         
         // Get QR code for this game
@@ -278,14 +294,14 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
       {/* Yellow section with curved bottom - using same method as login/OTP pages */}
       <div className="absolute top-0 h-[90%] w-[200vw] bg-[#FFE41F] rounded-b-full"></div>
       
-      <div className="max-w-md mx-auto px-4 pt-8 pb-32 relative z-10">
+      <div className="max-w-md mx-auto px-4 pt-8 pb-8 relative z-10 flex flex-col min-h-screen">
         {/* Welcome header - centered */}
         <header className="text-center mb-6">
           <h1 className="text-3xl sm:text-4xl font-bold text-[#11CC9A] mb-2">
             Welcome {userName?.split('')[0]?.toUpperCase()+userName?.slice(1)}
           </h1>
           <p className="text-sm text-gray-900 w-[80%] mx-auto">
-            Finish the challenge and scan the prize QR code to collect your reward.
+            Finish the challenge and scan the prize QR code to redeem your reward.
           </p>
         </header>
 
@@ -295,65 +311,68 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
           </div>
         )}
 
-        {/* Challenge cards - vertical list */}
-        <section className="space-y-4 mb-6">
+        {/* Challenge cards - grid layout: 2 columns on mobile, 1 column on larger screens */}
+        <section className="grid grid-cols-1 gap-2 sm:gap-4 mb-6">
           {GAME_TASKS.map((task) => {
             const isCompleted = completedSet.has(task.id);
             return (
               <article
                 key={task.id}
-                className={`bg-white rounded-xl shadow-lg p-5 relative ${
+                className={`bg-white rounded-xl shadow-lg p-4 sm:p-5 relative flex ${
                   isCompleted ? "ring-2 ring-[#11CC9A]" : ""
                 }`}
               >
                 {isCompleted && (
-                  <div className="absolute top-4 right-4">
-                    <CheckCircle className="w-6 h-6 text-[#11CC9A]" />
+                  <div className="absolute top-1 right-1 sm:top-2 sm:right-2">
+                    <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6 text-[#11CC9A]" />
                   </div>
                 )}
-                <div className="mb-4">
-                  <h2 className="text-lg font-heading text-black mb-1">
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <h2 className="text-base sm:text-lg font-heading text-black mb-1">
                     {task.title}
                   </h2>
-                  <p className="text-sm text-black ">
+                  <p className="text-xs w-[90%] sm:text-sm text-black mb-3">
                     {task.description}
                   </p>
+                  <div className="mt-auto">
+                    {!isCompleted ? (
+                      <button
+                        onClick={() => handleOpenScanner(task)}
+                        disabled={isSubmitting}
+                        className="inline-flex items-center justify-center gap-2 px-20 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90 disabled:opacity-60"
+                      >
+                        <img src="/game/qr-icon.svg" alt="QR" className="w-4 h-4" />
+                        Scan
+                      </button>
+                    ) : gameClaims[task.id] ? (
+                      <button
+                        disabled
+                        className="inline-flex items-center justify-center gap-2 px-20 py-2.5 rounded-full font-body text-sm bg-gray-400 text-white cursor-not-allowed"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Claimed
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleShowQRCode(task.id)}
+                        className="inline-flex items-center justify-center gap-2 px-20 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90"
+                      >
+                        <Gift className="w-4 h-4" />
+                        Claim
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex justify-end">
-                  {!isCompleted ? (
-                    <button
-                      onClick={() => handleOpenScanner(task)}
-                      disabled={isSubmitting}
-                      className="inline-flex items-center justify-center gap-2 px-10 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90 disabled:opacity-60"
-                    >
-                      <img src="/game/qr-icon.svg" alt="QR" className="w-4 h-4" />
-                      Scan
-                    </button>
-                  ) : gameClaims[task.id] ? (
-                    <button
-                      disabled
-                      className="inline-flex items-center justify-center gap-2 px-10 py-2.5 rounded-full font-body text-sm bg-gray-400 text-white cursor-not-allowed"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Claimed
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleShowQRCode(task.id)}
-                      className="inline-flex items-center justify-center gap-2 px-10 py-2.5 rounded-full font-body text-sm transition-colors bg-[#11CC9A] text-white hover:opacity-90"
-                    >
-                      <Gift className="w-4 h-4" />
-                      Claim
-                    </button>
-                  )}
+                <div className="flex-shrink-0 ml-2 sm:ml-3">
+                  <img src={task.icon} alt={task.title} className="h-full w-auto object-contain" />
                 </div>
               </article>
             );
           })}
         </section>
 
-        {/* Logout button at bottom - centered over wave */}
-        <footer className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-20">
+        {/* Logout button at bottom */}
+        <footer className="mt-auto pt-6 pb-4 flex justify-center">
           <button
             onClick={onLogout}
             className="inline-flex items-center justify-center gap-2 bg-[#11CC9A] text-white px-8 py-3 rounded-full hover:opacity-90 transition-colors text-base font-body shadow-lg"
@@ -376,7 +395,10 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
 
             <h3 className="text-xl font-heading mb-2">Scan Card {selectedCard.id}</h3>
             <p className="text-sm text-gray-300 mb-4">
-              Scan either the Tier 1 (GAME{selectedCard.id}_TIER1) or Tier 2 (GAME{selectedCard.id}_TIER2) station QR code for {selectedCard.title}.
+              {selectedCard.id === 4 
+                ? `Scan the KEETO_GAME4 QR code for ${selectedCard.title}.`
+                : `Scan either the Tier 1 (GAME${selectedCard.id}_TIER1) or Tier 2 (GAME${selectedCard.id}_TIER2) station QR code for ${selectedCard.title}.`
+              }
             </p>
 
             <SimpleQRScanner
