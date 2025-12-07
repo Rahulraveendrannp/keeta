@@ -3,6 +3,9 @@ const User = require('../models/User');
 const UserProgress = require('../models/UserProgress');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
+const { generateReportData } = require('../services/reportService');
+const { generateCSV } = require('../utils/csvGenerator');
+const moment = require('moment');
 
 const router = express.Router();
 
@@ -449,6 +452,61 @@ router.get('/user-qr-codes/:phoneNumber', catchAsync(async (req, res) => {
       throw error;
     }
     throw new AppError('Failed to get user QR codes', 500);
+  }
+}));
+
+// Generate CSV Report
+router.post('/generate-report', catchAsync(async (req, res) => {
+  const { startDate, endDate } = req.body;
+  
+  console.log('📊 Admin: Generating CSV report...', { startDate, endDate });
+
+  // Validate input
+  if (!startDate || !endDate) {
+    throw new AppError('Start date and end date are required', 400);
+  }
+
+  // Validate date format
+  if (!moment(startDate, 'YYYY-MM-DD', true).isValid() || !moment(endDate, 'YYYY-MM-DD', true).isValid()) {
+    throw new AppError('Invalid date format. Use YYYY-MM-DD (e.g., 2025-12-01)', 400);
+  }
+
+  // Validate date range
+  const start = moment(startDate);
+  const end = moment(endDate);
+  
+  if (end.isBefore(start)) {
+    throw new AppError('End date must be after start date', 400);
+  }
+
+  const daysDiff = end.diff(start, 'days');
+  if (daysDiff > 90) {
+    throw new AppError('Date range cannot exceed 90 days', 400);
+  }
+
+  try {
+    // Generate report data
+    const reportData = await generateReportData(startDate, endDate);
+    
+    // Generate CSV
+    const csvContent = generateCSV(reportData);
+    
+    // Set response headers for CSV download
+    const filename = `keeta-report-${startDate}-to-${endDate}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    console.log('📊 Admin: CSV report generated successfully:', filename);
+    
+    // Send CSV
+    res.status(200).send(csvContent);
+
+  } catch (error) {
+    console.error('❌ Admin: Error generating report:', error);
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to generate report', 500);
   }
 }));
 

@@ -1,0 +1,105 @@
+{
+  "info": {
+    "name": "Keeta CSV Report Generation",
+    "description": "Generate activation report CSV for specified date range",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Generate CSV Report",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2025-12-01\",\n  \"endDate\": \"2025-12-06\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/admin/generate-report",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "admin",
+            "generate-report"
+          ]
+        },
+        "description": "Generates a CSV report matching the Keeta activation report template.\n\n**Request Body:**\n- `startDate`: Start date in YYYY-MM-DD format\n- `endDate`: End date in YYYY-MM-DD format\n\n**Response:**\n- CSV file download\n- Filename: keeta-report-{startDate}-to-{endDate}.csv\n\n**Notes:**\n- Max date range: 90 days\n- Date format must be YYYY-MM-DD\n- Click \"Save Response\" in Postman to download the CSV file"
+      },
+      "response": []
+    },
+    {
+      "name": "Generate Weekly Report (Example)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2025-12-01\",\n  \"endDate\": \"2025-12-07\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/admin/generate-report",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "admin",
+            "generate-report"
+          ]
+        },
+        "description": "Example: Generate report for first week of December"
+      },
+      "response": []
+    },
+    {
+      "name": "Generate Single Day Report (Example)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2025-12-05\",\n  \"endDate\": \"2025-12-05\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/admin/generate-report",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "api",
+            "admin",
+            "generate-report"
+          ]
+        },
+        "description": "Example: Generate report for a single day"
+      },
+      "response": []
+    }
+  ]
+}
