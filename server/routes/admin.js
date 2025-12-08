@@ -5,6 +5,7 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { generateReportData } = require('../services/reportService');
 const { generateCSV } = require('../utils/csvGenerator');
+const { generateExcel } = require('../utils/excelGenerator');
 const moment = require('moment');
 
 const router = express.Router();
@@ -459,7 +460,7 @@ router.get('/user-qr-codes/:phoneNumber', catchAsync(async (req, res) => {
 router.post('/generate-report', catchAsync(async (req, res) => {
   const { startDate, endDate } = req.body;
   
-  console.log('📊 Admin: Generating CSV report...', { startDate, endDate });
+  console.log('📊 Admin: Generating Excel report...', { startDate, endDate });
 
   // Validate input
   if (!startDate || !endDate) {
@@ -488,25 +489,28 @@ router.post('/generate-report', catchAsync(async (req, res) => {
     // Generate report data
     const reportData = await generateReportData(startDate, endDate);
     
-    // Generate CSV
-    const csvContent = generateCSV(reportData);
+    // Generate Excel workbook
+    const workbook = await generateExcel(reportData);
     
-    // Set response headers for CSV download
-    const filename = `keeta-report-${startDate}-to-${endDate}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    // Set response headers for Excel download
+    const filename = `keeta-report-${startDate}-to-${endDate}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     
-    console.log('📊 Admin: CSV report generated successfully:', filename);
+    console.log('📊 Admin: Excel report generated successfully:', filename);
     
-    // Send CSV
-    res.status(200).send(csvContent);
+    // Write to buffer and send
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.status(200).send(buffer);
 
   } catch (error) {
     console.error('❌ Admin: Error generating report:', error);
+    console.error('❌ Admin: Error stack:', error.stack);
+    console.error('❌ Admin: Error message:', error.message);
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError('Failed to generate report', 500);
+    throw new AppError(`Failed to generate report: ${error.message}`, 500);
   }
 }));
 
