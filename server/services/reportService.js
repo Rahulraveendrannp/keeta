@@ -196,13 +196,26 @@ async function getGameEngagement(start, end) {
   users.forEach(user => {
     const qrCodes = user.gameQRCodes || {};
     const tiers = user.gameTiers || {};
+    const claims = user.gameClaims || {};
 
     Object.keys(games).forEach(gameName => {
       const gameKey = games[gameName].game;
       
-      if (qrCodes[gameKey]) {
+      // For games 1-3: Count if they have a tier (actually played)
+      // For game 4: Count if they have claimed (completed AI photobooth)
+      let hasPlayed = false;
+      
+      if (gameKey === 'game4') {
+        // Game 4: Count if claimed (completed photobooth)
+        hasPlayed = claims[gameKey] === true;
+      } else {
+        // Games 1-3: Count if they have a tier assigned (actually completed the game)
+        hasPlayed = tiers[gameKey] === 1 || tiers[gameKey] === 2;
+      }
+      
+      if (hasPlayed) {
         games[gameName].totalPlays++;
-        games[gameName].uniqueUsers++; // 1 user = 1 QR code per game
+        games[gameName].uniqueUsers++;
       }
 
       // Count tier prizes (only for games 1-3)
@@ -232,12 +245,13 @@ async function getHourlyTraffic(start, end) {
     createdAt: { $gte: start, $lte: end }
   }).lean();
 
+  // Include both operational and non-operational hours
   const timeSlots = {
-    '10AM-12PM': { start: 10, end: 12, count: 0 },
-    '12PM-3PM': { start: 12, end: 15, count: 0 },
+    '12AM-2PM (Non-operational)': { start: 0, end: 14, count: 0 },
+    '2PM-3PM': { start: 14, end: 15, count: 0 },
     '3PM-6PM': { start: 15, end: 18, count: 0 },
     '6PM-9PM': { start: 18, end: 21, count: 0 },
-    '9PM-11PM': { start: 21, end: 23, count: 0 }
+    '9PM-12AM': { start: 21, end: 24, count: 0 }
   };
 
   users.forEach(user => {
