@@ -340,10 +340,10 @@ const AdminPage: React.FC = () => {
                   <th className="text-left py-3 px-4">Name</th>
                   <th className="text-left py-3 px-4">Phone</th>
                   {/* <th className="text-center py-3 px-3">Cards</th> */}
-                  <th className="text-center py-3 px-3">Game 1</th>
-                  <th className="text-center py-3 px-3">Game 2</th>
-                  <th className="text-center py-3 px-3">Game 3</th>
-                  <th className="text-center py-3 px-3">Game 4</th>
+                  <th className="text-center py-3 px-3">Pose Battle</th>
+                  <th className="text-center py-3 px-3">Delivery Dash</th>
+                  <th className="text-center py-3 px-3">Reflex Catch</th>
+                  <th className="text-center py-3 px-3">Fan Persona Generator</th>
                   <th className="text-center py-3 px-4">Scan QR</th>
                 </tr>
               </thead>

@@ -1,5 +1,4 @@
-// utils.ts
-import type { RewardTier } from "./types";
+
 
 export const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -7,11 +6,6 @@ export const formatTime = (seconds: number): string => {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
-export const calculateRewardTier = (timeInMinutes: number): RewardTier => {
-  if (timeInMinutes < 20) return "Gold";
-  if (timeInMinutes <= 40) return "Silver";
-  return "Bronze";
-};
 
 export const generateRewardToken = (phoneNumber: string): string => {
   return `TLB-${phoneNumber.slice(-4)}-${Date.now().toString().slice(-6)}`;
