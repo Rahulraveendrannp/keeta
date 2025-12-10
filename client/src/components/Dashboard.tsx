@@ -20,8 +20,8 @@ interface CardInfo {
 const GAME_TASKS: CardInfo[] = [
   {
     id: 1,
-    title: "Pose Battle",
-    description: "Mimic football celebration poses accurately for points",
+    title: "Catch Kiki",
+    description: "Catch Kiki and collect points",
     qrCode: "KEETO_GAME1_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
     icon: "/game/dash-icon1.svg",
   },
