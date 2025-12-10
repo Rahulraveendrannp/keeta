@@ -23,7 +23,7 @@ const GAME_TASKS: CardInfo[] = [
     title: "Catch Kiki",
     description: "Catch Kiki and collect points",
     qrCode: "KEETO_GAME1_TIER1", // Station QR codes - users can scan either TIER1 or TIER2
-    icon: "/game/dash-icon1.svg",
+    icon: "/game/newicon.svg",
   },
   {
     id: 2,
@@ -364,7 +364,11 @@ const Dashboard: React.FC<DashboardProps> = ({ phoneNumber, onLogout }) => {
                   </div>
                 </div>
                 <div className="flex-shrink-0 ml-2 sm:ml-3">
-                  <img src={task.icon} alt={task.title} className="h-full w-auto object-contain" />
+                  <img 
+                    src={task.icon} 
+                    alt={task.title} 
+                    className={task.id === 1 ? "h-16 w-16 sm:h-20 sm:w-20 object-contain" : "h-full w-auto object-contain"} 
+                  />
                 </div>
               </article>
             );
