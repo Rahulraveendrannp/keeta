@@ -115,7 +115,7 @@ async function generateExcel(reportData) {
   addDataRow(['Total Prizes Redeemed', '', '', overview.totalPrizesRedeemed]);
   addDataRow(['Tier 1 Prizes Redeemed', '', '', overview.tier1PrizesRedeemed]);
   addDataRow(['Tier 2 Prizes Redeemed', '', '', overview.tier2PrizesRedeemed]);
-  addDataRow(['AI Photobooth Prints Redeemed', '', '', overview.aiPhotoboothPrints]);
+  addDataRow(['AI Photobooth Prints Redeemed (non-game)', '', '', overview.aiPhotoboothPrints]);
   currentRow++;
 
   // 2. Daily Performance Breakdown

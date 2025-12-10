@@ -9,11 +9,17 @@ const moment = require('moment');
 async function generateReportData(startDate, endDate) {
   console.log('📊 ReportService: Generating report data...', { startDate, endDate });
 
-  // Convert to Date objects and set time boundaries (using UTC)
-  const start = moment.utc(startDate).startOf('day').toDate();
-  const end = moment.utc(endDate).endOf('day').toDate();
+  // Convert to Date objects and set time boundaries
+  // Use local time (not UTC) to match how MongoDB stores createdAt timestamps
+  // Start: beginning of startDate, End: beginning of (endDate + 1 day) to avoid partial next day data
+  const start = moment(startDate).startOf('day').toDate();
+  const endPlusOne = moment(endDate).add(1, 'day').startOf('day').toDate();
 
-  console.log('📊 ReportService: Date range (UTC):', { start, end });
+  console.log('📊 ReportService: Date range (Local Time):', { 
+    start: moment(start).format('YYYY-MM-DD HH:mm:ss'), 
+    end: moment(endPlusOne).format('YYYY-MM-DD HH:mm:ss'),
+    note: 'Using $gte start and $lt endPlusOne to exclude next day'
+  });
 
   // Parallel data fetching
   const [
@@ -23,17 +29,17 @@ async function generateReportData(startDate, endDate) {
     hourlyTrafficData,
     prizeRedemptionData
   ] = await Promise.all([
-    getOverviewSummary(start, end),
-    getDailyBreakdown(start, end),
-    getGameEngagement(start, end),
-    getHourlyTraffic(start, end),
-    getPrizeRedemptionByGame(start, end)
+    getOverviewSummary(start, endPlusOne),
+    getDailyBreakdown(start, endPlusOne),
+    getGameEngagement(start, endPlusOne),
+    getHourlyTraffic(start, endPlusOne),
+    getPrizeRedemptionByGame(start, endPlusOne)
   ]);
 
   console.log('📊 ReportService: Data collection complete');
 
   return {
-    dateRange: { start, end },
+    dateRange: { start, end: endPlusOne },
     overview: overviewData,
     daily: dailyData,
     gameEngagement: gameEngagementData,
@@ -49,7 +55,7 @@ async function getOverviewSummary(start, end) {
   console.log('📊 ReportService: Calculating overview summary...');
 
   const users = await User.find({
-    createdAt: { $gte: start, $lte: end }
+    createdAt: { $gte: start, $lt: end }
   }).lean();
 
   const totalRegisteredPlayers = users.length;
@@ -62,30 +68,33 @@ async function getOverviewSummary(start, end) {
   let aiPhotoboothPrints = 0;
 
   users.forEach(user => {
-    const qrCodes = user.gameQRCodes || {};
     const claims = user.gameClaims || {};
     const tiers = user.gameTiers || {};
 
-    // Count games played (non-null QR codes)
-    ['game1', 'game2', 'game3', 'game4'].forEach(game => {
-      if (qrCodes[game]) totalGamesPlayed++;
-    });
-
-    // Count prizes redeemed
-    ['game1', 'game2', 'game3', 'game4'].forEach(game => {
-      if (claims[game]) {
-        totalPrizesRedeemed++;
-
-        // Count AI Photobooth (game4)
-        if (game === 'game4') {
-          aiPhotoboothPrints++;
-        } else {
-          // Count tier-based prizes for games 1-3
-          if (tiers[game] === 1) tier1PrizesRedeemed++;
-          if (tiers[game] === 2) tier2PrizesRedeemed++;
-        }
+    // Count games played (ONLY games 1-3, exclude game4/AI Photobooth)
+    // Games 1-3: A game is "played" if user has a tier assigned
+    ['game1', 'game2', 'game3'].forEach(game => {
+      if (tiers[game] === 1 || tiers[game] === 2) {
+        totalGamesPlayed++;
       }
     });
+
+    // Count prizes redeemed (ONLY games 1-3, exclude game4/AI Photobooth)
+    ['game1', 'game2', 'game3'].forEach(game => {
+      if (claims[game]) {
+        totalPrizesRedeemed++;
+        
+        // Count tier-based prizes for games 1-3
+        if (tiers[game] === 1) tier1PrizesRedeemed++;
+        if (tiers[game] === 2) tier2PrizesRedeemed++;
+      }
+    });
+
+    // AI Photobooth: Keep count for reference but won't add to totals
+    // (Will be manually entered in Excel)
+    if (claims['game4']) {
+      aiPhotoboothPrints++;
+    }
   });
 
   return {
@@ -105,7 +114,7 @@ async function getDailyBreakdown(start, end) {
   console.log('📊 ReportService: Calculating daily breakdown...');
 
   const users = await User.find({
-    createdAt: { $gte: start, $lte: end }
+    createdAt: { $gte: start, $lt: end }
   }).lean();
 
   // Group by day
@@ -129,25 +138,30 @@ async function getDailyBreakdown(start, end) {
 
     dailyMap[day].totalUsers++;
 
-    const qrCodes = user.gameQRCodes || {};
     const claims = user.gameClaims || {};
     const tiers = user.gameTiers || {};
 
-    // Count games and prizes
-    ['game1', 'game2', 'game3', 'game4'].forEach(game => {
-      if (qrCodes[game]) dailyMap[day].totalGamesPlayed++;
-      
+    // Count games played (ONLY games 1-3, exclude game4/AI Photobooth)
+    ['game1', 'game2', 'game3'].forEach(game => {
+      if (tiers[game] === 1 || tiers[game] === 2) {
+        dailyMap[day].totalGamesPlayed++;
+      }
+    });
+
+    // Count prizes redeemed (ONLY games 1-3, exclude game4/AI Photobooth)
+    ['game1', 'game2', 'game3'].forEach(game => {
       if (claims[game]) {
         dailyMap[day].totalPrizesRedeemed++;
         
-        if (game === 'game4') {
-          dailyMap[day].aiPhotoPrints++;
-        } else {
-          if (tiers[game] === 1) dailyMap[day].tier1PrizeRedeemed++;
-          if (tiers[game] === 2) dailyMap[day].tier2PrizeRedeemed++;
-        }
+        if (tiers[game] === 1) dailyMap[day].tier1PrizeRedeemed++;
+        if (tiers[game] === 2) dailyMap[day].tier2PrizeRedeemed++;
       }
     });
+
+    // AI Photobooth: Track count but keep separate (will be manually entered)
+    if (claims['game4']) {
+      dailyMap[day].aiPhotoPrints++;
+    }
 
     // Track hourly activity for peak hour calculation
     const hour = moment(user.createdAt).hour();
@@ -183,7 +197,7 @@ async function getGameEngagement(start, end) {
   console.log('📊 ReportService: Calculating game engagement...');
 
   const users = await User.find({
-    createdAt: { $gte: start, $lte: end }
+    createdAt: { $gte: start, $lt: end }
   }).lean();
 
   const games = {
@@ -242,7 +256,7 @@ async function getHourlyTraffic(start, end) {
   console.log('📊 ReportService: Calculating hourly traffic...');
 
   const users = await User.find({
-    createdAt: { $gte: start, $lte: end }
+    createdAt: { $gte: start, $lt: end }
   }).lean();
 
   // Include both operational and non-operational hours
@@ -278,7 +292,7 @@ async function getPrizeRedemptionByGame(start, end) {
   console.log('📊 ReportService: Calculating prize redemption by game...');
 
   const users = await User.find({
-    createdAt: { $gte: start, $lte: end }
+    createdAt: { $gte: start, $lt: end }
   }).lean();
 
   const games = {

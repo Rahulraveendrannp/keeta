@@ -122,13 +122,16 @@ The generated CSV includes:
 | CSV Field | Database Source |
 |-----------|----------------|
 | Total Registered Players | `User.count({ createdAt: dateRange })` |
-| Total Games Played | Count non-null `gameQRCodes` |
-| Total Prizes Redeemed | Count `gameClaims` = true |
-| Tier 1/2 Prizes | `gameTiers` + `gameClaims` |
+| Total Games Played | Count users with `gameTiers` set (Games 1-3 ONLY) |
+| Total Prizes Redeemed | Count `gameClaims` = true (Games 1-3 ONLY) |
+| Tier 1/2 Prizes | `gameTiers` + `gameClaims` (Games 1-3 ONLY) |
+| AI Photobooth Prints | Counted but NOT included in totals (manual entry) |
 | Daily Breakdowns | Group by `createdAt` date |
-| Peak Hours | Extract hour from `createdAt` |
-| Game Engagement | Per-game `gameQRCodes` count |
+| Peak Hours | Extract hour from `createdAt` (registration time) |
+| Game Engagement | Per-game `gameTiers` count |
 | Hourly Traffic | Group by hour slots |
+
+**Note:** Game 4 (AI Photobooth) is excluded from all game totals as it's not an actual game activity. The AI Photobooth count is provided as reference data but should be manually verified and entered.
 
 ---
 
