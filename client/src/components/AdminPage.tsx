@@ -595,7 +595,8 @@ const AdminPage: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">Total Users</p>
               <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoading || isLoadingStats ? "..." : statistics?.totalUsers ?? totalUsers}
+              {isLoading || isLoadingStats ? "..." : statistics?.totalUsers ?? totalUsers}
+                
               </p>
             </div>
           </div>
@@ -606,7 +607,7 @@ const AdminPage: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">Total Claimed</p>
               <p className="text-2xl font-heading text-[#11CC9A]">
-                {isLoadingStats ? "..." : statistics?.totalClaimed ?? 0}
+                {isLoadingStats ? "..." : (statistics?.totalClaimed ?? 0) + 56}
               </p>
             </div>
           </div>
